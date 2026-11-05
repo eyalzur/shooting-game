@@ -1,4 +1,4 @@
-const CACHE_NAME = 'strafe-strike-v1';
+const CACHE_NAME = 'strafe-strike-v2';
 const SHELL_URLS = ['/shooting-game/', '/shooting-game/manifest.json', '/shooting-game/favicon.png'];
 
 self.addEventListener('install', (event) => {
@@ -19,6 +19,25 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+
+  // Navigations and the HTML shell: always go to the network first, so a new
+  // deploy (which points at a new hashed bundle) is picked up immediately.
+  // Fall back to the cache only when offline.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Hashed static assets (JS bundles, icons, etc.) are immutable, so
+  // cache-first is safe and keeps the app usable offline.
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
