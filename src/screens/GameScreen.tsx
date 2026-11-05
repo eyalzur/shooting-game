@@ -59,8 +59,9 @@ export default function GameScreen() {
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
   const scoreRef = useRef(0);
-  const hitsRef = useRef(0);
+  const streakRef = useRef(0);
   const difficultyLevelRef = useRef(0);
+  const emittedLevelRef = useRef(0);
   const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
@@ -71,11 +72,14 @@ export default function GameScreen() {
   const [score, setScore] = useState(0);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
 
+  // difficultyLevelRef is the source of truth, advanced inside the game
+  // loop; difficultyLevel state only mirrors it for rendering, so this must
+  // not write back into the ref (it would clobber progress made in-between
+  // this effect running and the last render).
   const effectiveLanes = useMemo(() => getEffectiveLanes(difficultyLevel), [difficultyLevel]);
   useEffect(() => {
     effectiveLanesRef.current = effectiveLanes;
-    difficultyLevelRef.current = difficultyLevel;
-  }, [effectiveLanes, difficultyLevel]);
+  }, [effectiveLanes]);
 
   // Keep the player within bounds if the window resizes.
   useEffect(() => {
@@ -121,10 +125,12 @@ export default function GameScreen() {
         return { ...t, x: nextX, dir: nextDir };
       });
 
-      // Bullets: move up, drop once off-screen.
-      bulletsRef.current = bulletsRef.current
-        .map((b) => ({ ...b, y: b.y - BULLET_SPEED * dt }))
-        .filter((b) => b.y > -20);
+      // Bullets: move up, drop once off-screen. A bullet that leaves the top
+      // without ever hitting anything is a missed shot.
+      const movedBullets = bulletsRef.current.map((b) => ({ ...b, y: b.y - BULLET_SPEED * dt }));
+      const aliveBullets = movedBullets.filter((b) => b.y > -20);
+      let missedCount = movedBullets.length - aliveBullets.length;
+      bulletsRef.current = aliveBullets;
 
       // Collisions: a live bullet entering a lane's hit band near a live target.
       const remainingBullets: BulletState[] = [];
@@ -140,7 +146,7 @@ export default function GameScreen() {
           ) {
             t.hitAt = now;
             scoreRef.current += lane.points;
-            hitsRef.current += 1;
+            streakRef.current += 1;
             hitSomething = true;
             break;
           }
@@ -149,13 +155,27 @@ export default function GameScreen() {
       }
       bulletsRef.current = remainingBullets;
 
-      const newLevel = Math.min(
+      // Difficulty ramps up on a hit streak; a miss eases it back one step
+      // (not a hard reset), so a single slip doesn't undo a whole run.
+      while (missedCount > 0) {
+        if (difficultyLevelRef.current > 0) {
+          difficultyLevelRef.current -= 1;
+          streakRef.current = difficultyLevelRef.current * DIFFICULTY_STEP_HITS;
+        } else {
+          streakRef.current = 0;
+        }
+        missedCount -= 1;
+      }
+      const streakLevel = Math.min(
         DIFFICULTY_MAX_LEVEL,
-        Math.floor(hitsRef.current / DIFFICULTY_STEP_HITS)
+        Math.floor(streakRef.current / DIFFICULTY_STEP_HITS)
       );
-      if (newLevel !== difficultyLevelRef.current) {
-        difficultyLevelRef.current = newLevel;
-        setDifficultyLevel(newLevel);
+      if (streakLevel > difficultyLevelRef.current) {
+        difficultyLevelRef.current = streakLevel;
+      }
+      if (difficultyLevelRef.current !== emittedLevelRef.current) {
+        emittedLevelRef.current = difficultyLevelRef.current;
+        setDifficultyLevel(difficultyLevelRef.current);
       }
 
       setTargets(targetsRef.current);
@@ -240,6 +260,7 @@ export default function GameScreen() {
       <View style={styles.topBar}>
         <Text style={styles.scoreLabel}>SCORE</Text>
         <Text style={styles.scoreText}>{score}</Text>
+        <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
       </View>
 
       <View
@@ -278,6 +299,12 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 12,
     letterSpacing: 2,
+  },
+  levelLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    letterSpacing: 1,
+    marginLeft: 16,
   },
   scoreText: {
     color: COLORS.textPrimary,

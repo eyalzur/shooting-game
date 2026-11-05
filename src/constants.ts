@@ -13,20 +13,23 @@ export const COLORS = {
   cyan: '#5ad8ff',
   purple: '#8a5cff',
   pink: '#ff5cb3',
+  stone: '#a89a85',
+  stoneDark: '#5f5346',
 };
 
 // Lanes ordered far -> near. Far targets are bigger (easier to see at
 // distance, offsetting the longer bullet travel time) but move faster and
 // score more; near targets are smaller, slower, and worth less. Tune freely.
 export const LANES: LaneConfig[] = [
-  { y: 0.12, size: 46, speed: 190, points: 30, color: COLORS.pink },
-  { y: 0.32, size: 34, speed: 150, points: 20, color: COLORS.purple },
-  { y: 0.52, size: 24, speed: 110, points: 10, color: COLORS.cyan },
+  { y: 0.12, size: 46, speed: 120, points: 30, color: COLORS.pink },
+  { y: 0.32, size: 34, speed: 95, points: 20, color: COLORS.purple },
+  { y: 0.52, size: 24, speed: 70, points: 10, color: COLORS.cyan },
 ];
 
-// Difficulty ramps with hits landed, not time, and steps up gradually: every
-// DIFFICULTY_STEP_HITS hits, targets get a bit faster and a bit smaller,
-// capped so it never becomes impossible.
+// Difficulty tracks a hit STREAK, not lifetime hits: every DIFFICULTY_STEP_HITS
+// consecutive-ish hits, targets get a bit faster and smaller (capped so it
+// never becomes impossible). A missed shot eases it back down one step
+// instead of resetting outright, so one slip doesn't undo a run.
 export const DIFFICULTY_STEP_HITS = 4;
 export const DIFFICULTY_SPEED_STEP = 0.12; // +12% speed per step
 export const DIFFICULTY_SIZE_STEP = 0.07; // -7% size per step
@@ -37,8 +40,9 @@ export const PLAYER_SIZE = 56;
 export const PLAYER_SPEED = 260; // px/sec
 export const PLAYER_BOTTOM_MARGIN = 24;
 
-export const BULLET_SIZE = { width: 5, height: 20 };
-export const BULLET_SPEED = 520; // px/sec, upward
+export const BULLET_SIZE = 18; // spinning stone diameter, px
+export const BULLET_SPEED = 640; // px/sec, upward
+export const BULLET_SPIN_MS = 550; // ms per full rotation
 export const MAX_BULLETS = 6;
 
 export const HIT_BAND = 26; // px tolerance around a lane's y for collision
