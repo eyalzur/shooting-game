@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +20,8 @@ import {
   PLAYER_SIZE,
   PLAYER_SPEED,
   RESPAWN_DELAY_MS,
+  TAP_MAX_DISTANCE,
+  TAP_MAX_DURATION_MS,
 } from '../constants';
 import { BulletState, TargetState } from '../types';
 
@@ -173,6 +176,42 @@ export default function GameScreen() {
     if (moveDirRef.current === dir) moveDirRef.current = 0;
   };
 
+  // Swipe left/right on the play area to move the player; a quick tap that
+  // barely moves fires instead, so moving never also triggers a shot.
+  const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const dragBaseXRef = useRef(0);
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (evt) => {
+        touchStartRef.current = {
+          x: evt.nativeEvent.pageX,
+          y: evt.nativeEvent.pageY,
+          t: Date.now(),
+        };
+        dragBaseXRef.current = playerXRef.current;
+      },
+      onPanResponderMove: (_evt, gestureState) => {
+        const next = dragBaseXRef.current + gestureState.dx;
+        playerXRef.current = Math.min(
+          Math.max(next, PLAYER_SIZE / 2),
+          width - PLAYER_SIZE / 2
+        );
+        setPlayerX(playerXRef.current);
+      },
+      onPanResponderRelease: (_evt, gestureState) => {
+        const start = touchStartRef.current;
+        touchStartRef.current = null;
+        const distance = Math.hypot(gestureState.dx, gestureState.dy);
+        const duration = start ? Date.now() - start.t : Infinity;
+        if (distance < TAP_MAX_DISTANCE && duration < TAP_MAX_DURATION_MS) {
+          fire();
+        }
+      },
+    })
+  ).current;
+
   const laneYs = useMemo(
     () => LANES.map((lane) => lane.y * playAreaHeight),
     [playAreaHeight]
@@ -184,7 +223,10 @@ export default function GameScreen() {
         <Text style={styles.scoreText}>Score: {score}</Text>
       </View>
 
-      <Pressable style={[styles.playArea, { height: playAreaHeight }]} onPress={fire}>
+      <View
+        style={[styles.playArea, { height: playAreaHeight }]}
+        {...panResponder.panHandlers}
+      >
         {targets.map((t, i) => (
           <Target key={t.id} target={t} lane={LANES[t.laneIndex]} laneY={laneYs[i]} />
         ))}
@@ -192,7 +234,7 @@ export default function GameScreen() {
           <Bullet key={b.id} bullet={b} />
         ))}
         <Player x={playerX} y={playerY} />
-      </Pressable>
+      </View>
 
       <View style={styles.controls}>
         <Pressable

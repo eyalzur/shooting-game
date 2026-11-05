@@ -1,5 +1,5 @@
 const CACHE_NAME = 'strafe-strike-v1';
-const SHELL_URLS = ['/', '/manifest.json', '/favicon.png'];
+const SHELL_URLS = ['/shooting-game/', '/shooting-game/manifest.json', '/shooting-game/favicon.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

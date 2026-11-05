@@ -26,6 +26,9 @@
       "shortName": "Strafe Strike",
       "themeColor": "#101522",
       "backgroundColor": "#0d1117"
+    },
+    "experiments": {
+      "baseUrl": "/shooting-game"
     }
   }
 }
