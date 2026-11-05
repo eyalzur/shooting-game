@@ -1,20 +1,22 @@
+import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { View } from 'react-native';
+import SplashScreen from './src/components/SplashScreen';
+import GameScreen from './src/screens/GameScreen';
+import { SPLASH_MIN_DURATION_MS } from './src/constants';
 
 export default function App() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), SPLASH_MIN_DURATION_MS);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <View style={styles.container}>
-      <Text>Open up App.tsx to start working on your app!</Text>
-      <StatusBar style="auto" />
+    <View style={{ flex: 1 }}>
+      {showSplash ? <SplashScreen /> : <GameScreen />}
+      <StatusBar style="light" />
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

@@ -19,7 +19,13 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Strafe Strike",
+      "shortName": "Strafe Strike",
+      "themeColor": "#101522",
+      "backgroundColor": "#0d1117"
     }
   }
 }
