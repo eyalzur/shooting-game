@@ -7,6 +7,11 @@ import Target from '../components/Target';
 import {
   BULLET_SPEED,
   COLORS,
+  DIFFICULTY_MAX_LEVEL,
+  DIFFICULTY_MIN_SIZE_MULTIPLIER,
+  DIFFICULTY_SIZE_STEP,
+  DIFFICULTY_SPEED_STEP,
+  DIFFICULTY_STEP_HITS,
   HIT_BAND,
   LANES,
   MAX_BULLETS,
@@ -16,22 +21,29 @@ import {
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
 } from '../constants';
-import { BulletState, TargetState } from '../types';
+import { BulletState, LaneConfig, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
 
-function randomXForLane(laneIndex: number, width: number) {
-  const size = LANES[laneIndex].size;
+// Targets get a bit faster and a bit smaller every DIFFICULTY_STEP_HITS hits,
+// capped at DIFFICULTY_MAX_LEVEL so it ramps up without becoming impossible.
+function getEffectiveLanes(level: number): LaneConfig[] {
+  const speedMul = 1 + level * DIFFICULTY_SPEED_STEP;
+  const sizeMul = Math.max(DIFFICULTY_MIN_SIZE_MULTIPLIER, 1 - level * DIFFICULTY_SIZE_STEP);
+  return LANES.map((lane) => ({ ...lane, size: lane.size * sizeMul, speed: lane.speed * speedMul }));
+}
+
+function randomXForLane(size: number, width: number) {
   const min = size / 2;
   const max = width - size / 2;
   return min + Math.random() * (max - min);
 }
 
-function makeInitialTargets(width: number): TargetState[] {
-  return LANES.map((_, laneIndex) => ({
+function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
+  return lanes.map((lane, laneIndex) => ({
     id: laneIndex,
     laneIndex,
-    x: randomXForLane(laneIndex, width),
+    x: randomXForLane(lane.size, width),
     dir: Math.random() < 0.5 ? 1 : -1,
     hitAt: null,
   }));
@@ -44,9 +56,12 @@ export default function GameScreen() {
 
   const idCounterRef = useRef(LANES.length);
   const playerXRef = useRef(width / 2);
-  const targetsRef = useRef<TargetState[]>(makeInitialTargets(width));
+  const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
   const scoreRef = useRef(0);
+  const hitsRef = useRef(0);
+  const difficultyLevelRef = useRef(0);
+  const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
 
@@ -54,6 +69,13 @@ export default function GameScreen() {
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [score, setScore] = useState(0);
+  const [difficultyLevel, setDifficultyLevel] = useState(0);
+
+  const effectiveLanes = useMemo(() => getEffectiveLanes(difficultyLevel), [difficultyLevel]);
+  useEffect(() => {
+    effectiveLanesRef.current = effectiveLanes;
+    difficultyLevelRef.current = difficultyLevel;
+  }, [effectiveLanes, difficultyLevel]);
 
   // Keep the player within bounds if the window resizes.
   useEffect(() => {
@@ -71,19 +93,20 @@ export default function GameScreen() {
 
       // Targets: bounce within lane bounds, or wait to respawn after a hit.
       const now = Date.now();
+      const lanes = effectiveLanesRef.current;
       targetsRef.current = targetsRef.current.map((t) => {
         if (t.hitAt !== null) {
           if (now - t.hitAt > RESPAWN_DELAY_MS) {
             return {
               ...t,
               hitAt: null,
-              x: randomXForLane(t.laneIndex, width),
+              x: randomXForLane(lanes[t.laneIndex].size, width),
               dir: Math.random() < 0.5 ? 1 : -1,
             };
           }
           return t;
         }
-        const lane = LANES[t.laneIndex];
+        const lane = lanes[t.laneIndex];
         const min = lane.size / 2;
         const max = width - lane.size / 2;
         let nextX = t.x + t.dir * lane.speed * dt;
@@ -109,7 +132,7 @@ export default function GameScreen() {
         let hitSomething = false;
         for (const t of targetsRef.current) {
           if (t.hitAt !== null) continue;
-          const lane = LANES[t.laneIndex];
+          const lane = lanes[t.laneIndex];
           const laneY = lane.y * playAreaHeight;
           if (
             Math.abs(b.y - laneY) <= HIT_BAND &&
@@ -117,6 +140,7 @@ export default function GameScreen() {
           ) {
             t.hitAt = now;
             scoreRef.current += lane.points;
+            hitsRef.current += 1;
             hitSomething = true;
             break;
           }
@@ -124,6 +148,15 @@ export default function GameScreen() {
         if (!hitSomething) remainingBullets.push(b);
       }
       bulletsRef.current = remainingBullets;
+
+      const newLevel = Math.min(
+        DIFFICULTY_MAX_LEVEL,
+        Math.floor(hitsRef.current / DIFFICULTY_STEP_HITS)
+      );
+      if (newLevel !== difficultyLevelRef.current) {
+        difficultyLevelRef.current = newLevel;
+        setDifficultyLevel(newLevel);
+      }
 
       setTargets(targetsRef.current);
       setBullets(bulletsRef.current);
@@ -152,13 +185,17 @@ export default function GameScreen() {
   };
 
   // Swipe left/right anywhere on screen to move the player; a quick tap that
-  // barely moves fires instead, so moving never also triggers a shot.
+  // barely moves fires on release — and only on release, never mid-gesture.
+  // Distances are measured from raw touch coordinates (not PanResponder's
+  // own gestureState.dx/dy), which reports unreliably on some mobile
+  // browsers and was causing swipes to misfire as taps.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const dragBaseXRef = useRef(0);
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
         touchStartRef.current = {
           x: evt.nativeEvent.pageX,
@@ -167,19 +204,25 @@ export default function GameScreen() {
         };
         dragBaseXRef.current = playerXRef.current;
       },
-      onPanResponderMove: (_evt, gestureState) => {
-        const next = dragBaseXRef.current + gestureState.dx;
+      onPanResponderMove: (evt) => {
+        const start = touchStartRef.current;
+        if (!start) return;
+        const dx = evt.nativeEvent.pageX - start.x;
+        const next = dragBaseXRef.current + dx;
         playerXRef.current = Math.min(
           Math.max(next, PLAYER_SIZE / 2),
           width - PLAYER_SIZE / 2
         );
         setPlayerX(playerXRef.current);
       },
-      onPanResponderRelease: (_evt, gestureState) => {
+      onPanResponderRelease: (evt) => {
         const start = touchStartRef.current;
         touchStartRef.current = null;
-        const distance = Math.hypot(gestureState.dx, gestureState.dy);
-        const duration = start ? Date.now() - start.t : Infinity;
+        if (!start) return;
+        const dx = evt.nativeEvent.pageX - start.x;
+        const dy = evt.nativeEvent.pageY - start.y;
+        const distance = Math.hypot(dx, dy);
+        const duration = Date.now() - start.t;
         if (distance < TAP_MAX_DISTANCE && duration < TAP_MAX_DURATION_MS) {
           fire();
         }
@@ -205,7 +248,7 @@ export default function GameScreen() {
       >
         <Starfield width={width} height={playAreaHeight} />
         {targets.map((t, i) => (
-          <Target key={t.id} target={t} lane={LANES[t.laneIndex]} laneY={laneYs[i]} />
+          <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
         ))}
         {bullets.map((b) => (
           <Bullet key={b.id} bullet={b} />
