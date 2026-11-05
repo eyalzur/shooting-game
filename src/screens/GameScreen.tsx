@@ -1,24 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  PanResponder,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Bullet from '../components/Bullet';
 import Player from '../components/Player';
+import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
   BULLET_SPEED,
-  CONTROLS_HEIGHT,
+  COLORS,
   HIT_BAND,
   LANES,
   MAX_BULLETS,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
-  PLAYER_SPEED,
   RESPAWN_DELAY_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
@@ -46,11 +39,10 @@ function makeInitialTargets(width: number): TargetState[] {
 
 export default function GameScreen() {
   const { width, height } = useWindowDimensions();
-  const playAreaHeight = height - TOP_BAR_HEIGHT - CONTROLS_HEIGHT;
+  const playAreaHeight = height - TOP_BAR_HEIGHT;
   const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
 
   const idCounterRef = useRef(LANES.length);
-  const moveDirRef = useRef<-1 | 0 | 1>(0);
   const playerXRef = useRef(width / 2);
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(width));
   const bulletsRef = useRef<BulletState[]>([]);
@@ -76,15 +68,6 @@ export default function GameScreen() {
       const last = lastTsRef.current ?? ts;
       const dt = Math.min((ts - last) / 1000, 0.05); // clamp dt for tab-switch pauses
       lastTsRef.current = ts;
-
-      // Player movement.
-      if (moveDirRef.current !== 0) {
-        const next = playerXRef.current + moveDirRef.current * PLAYER_SPEED * dt;
-        playerXRef.current = Math.min(
-          Math.max(next, PLAYER_SIZE / 2),
-          width - PLAYER_SIZE / 2
-        );
-      }
 
       // Targets: bounce within lane bounds, or wait to respawn after a hit.
       const now = Date.now();
@@ -142,7 +125,6 @@ export default function GameScreen() {
       }
       bulletsRef.current = remainingBullets;
 
-      setPlayerX(playerXRef.current);
       setTargets(targetsRef.current);
       setBullets(bulletsRef.current);
       setScore(scoreRef.current);
@@ -169,14 +151,7 @@ export default function GameScreen() {
     setBullets(bulletsRef.current);
   };
 
-  const startMove = (dir: -1 | 1) => () => {
-    moveDirRef.current = dir;
-  };
-  const stopMove = (dir: -1 | 1) => () => {
-    if (moveDirRef.current === dir) moveDirRef.current = 0;
-  };
-
-  // Swipe left/right on the play area to move the player; a quick tap that
+  // Swipe left/right anywhere on screen to move the player; a quick tap that
   // barely moves fires instead, so moving never also triggers a shot.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const dragBaseXRef = useRef(0);
@@ -220,13 +195,15 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <Text style={styles.scoreText}>Score: {score}</Text>
+        <Text style={styles.scoreLabel}>SCORE</Text>
+        <Text style={styles.scoreText}>{score}</Text>
       </View>
 
       <View
-        style={[styles.playArea, { height: playAreaHeight }]}
+        style={[styles.playArea, { height: playAreaHeight }, webTouchStyle]}
         {...panResponder.panHandlers}
       >
+        <Starfield width={width} height={playAreaHeight} />
         {targets.map((t, i) => (
           <Target key={t.id} target={t} lane={LANES[t.laneIndex]} laneY={laneYs[i]} />
         ))}
@@ -235,26 +212,6 @@ export default function GameScreen() {
         ))}
         <Player x={playerX} y={playerY} />
       </View>
-
-      <View style={styles.controls}>
-        <Pressable
-          onPressIn={startMove(-1)}
-          onPressOut={stopMove(-1)}
-          style={styles.controlButton}
-        >
-          <Text style={styles.controlText}>◀</Text>
-        </Pressable>
-        <Pressable onPress={fire} style={[styles.controlButton, styles.fireButton]}>
-          <Text style={styles.controlText}>FIRE</Text>
-        </Pressable>
-        <Pressable
-          onPressIn={startMove(1)}
-          onPressOut={stopMove(1)}
-          style={styles.controlButton}
-        >
-          <Text style={styles.controlText}>▶</Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -262,50 +219,38 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0d1117',
+    backgroundColor: COLORS.background,
   },
   topBar: {
     height: TOP_BAR_HEIGHT,
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'baseline',
     justifyContent: 'center',
+    gap: 8,
+    backgroundColor: COLORS.panel,
     borderBottomWidth: 1,
-    borderBottomColor: '#1f2733',
+    borderBottomColor: COLORS.border,
+  },
+  scoreLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    letterSpacing: 2,
   },
   scoreText: {
-    color: '#fff',
-    fontSize: 20,
+    color: COLORS.textPrimary,
+    fontSize: 22,
     fontWeight: 'bold',
+    textShadowColor: COLORS.cyan,
+    textShadowRadius: 12,
+    textShadowOffset: { width: 0, height: 0 },
   },
   playArea: {
-    backgroundColor: '#152238',
+    backgroundColor: COLORS.background,
     overflow: 'hidden',
   },
-  controls: {
-    height: CONTROLS_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-evenly',
-    backgroundColor: '#0d1117',
-    borderTopWidth: 1,
-    borderTopColor: '#1f2733',
-  },
-  controlButton: {
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: '#263445',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fireButton: {
-    backgroundColor: '#d64545',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-  },
-  controlText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
 });
+
+// Web-only CSS that stops mobile browsers from treating the drag as a page
+// scroll/swipe, so the swipe-to-move gesture is captured instead. Not part
+// of React Native's ViewStyle type, so it's applied as a separate style.
+const webTouchStyle: any = { touchAction: 'none', userSelect: 'none' };

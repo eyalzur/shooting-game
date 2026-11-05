@@ -1,13 +1,17 @@
-import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
-import { GAME_NAME } from '../constants';
+import { StyleSheet, Text, View, ActivityIndicator, useWindowDimensions } from 'react-native';
+import { COLORS, GAME_NAME } from '../constants';
+import Starfield from './Starfield';
 
 export default function SplashScreen() {
+  const { width, height } = useWindowDimensions();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.emoji}>🎯</Text>
+      <Starfield width={width} height={height} />
+      <Text style={styles.emoji}>🌌</Text>
       <Text style={styles.title}>{GAME_NAME}</Text>
       <Text style={styles.subtitle}>Take aim. Hold your ground.</Text>
-      <ActivityIndicator color="#fff" style={styles.spinner} />
+      <ActivityIndicator color={COLORS.cyan} style={styles.spinner} />
     </View>
   );
 }
@@ -15,7 +19,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#101522',
+    backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -24,15 +28,19 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: '#ffffff',
+    color: COLORS.textPrimary,
     fontSize: 36,
     fontWeight: 'bold',
-    letterSpacing: 1,
+    letterSpacing: 2,
+    textShadowColor: COLORS.purple,
+    textShadowRadius: 20,
+    textShadowOffset: { width: 0, height: 0 },
   },
   subtitle: {
-    color: '#9aa4b2',
+    color: COLORS.textSecondary,
     fontSize: 14,
     marginTop: 8,
+    letterSpacing: 0.5,
   },
   spinner: {
     marginTop: 28,

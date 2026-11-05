@@ -1,5 +1,5 @@
 import { StyleSheet, View } from 'react-native';
-import { BULLET_SIZE } from '../constants';
+import { BULLET_SIZE, COLORS } from '../constants';
 import { BulletState } from '../types';
 
 export default function Bullet({ bullet }: { bullet: BulletState }) {
@@ -19,6 +19,10 @@ const styles = StyleSheet.create({
     width: BULLET_SIZE.width,
     height: BULLET_SIZE.height,
     borderRadius: BULLET_SIZE.width / 2,
-    backgroundColor: '#fff176',
+    backgroundColor: COLORS.cyan,
+    shadowColor: COLORS.cyan,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
 });
