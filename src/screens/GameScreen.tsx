@@ -8,6 +8,8 @@ import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
+  BOT_AREA_RATIO,
+  BOT_LANE_SIZE_SCALE,
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
   BULLET_SPEED_STEP,
@@ -38,6 +40,11 @@ import {
 import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
+
+// The bot's mini-arena uses the same lanes, just smaller — it's a real,
+// independently-live playfield, not just a number ticking up, so it's
+// obvious both sides are playing at the same time.
+const BOT_LANES: LaneConfig[] = LANES.map((lane) => ({ ...lane, size: lane.size * BOT_LANE_SIZE_SCALE }));
 
 // Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
@@ -84,6 +91,43 @@ function randomRespawnDelay() {
   return RESPAWN_MIN_MS + Math.random() * (RESPAWN_MAX_MS - RESPAWN_MIN_MS);
 }
 
+// Shared bounce/respawn/spin physics, used for both the player's targets
+// and the bot's — same rules, just different lane sets.
+function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: number, dt: number, now: number): TargetState[] {
+  return targets.map((t) => {
+    if (t.hitAt !== null) {
+      if (now - t.hitAt > t.respawnDelay) {
+        const lane = lanes[t.laneIndex];
+        return {
+          ...t,
+          hitAt: null,
+          x: randomXForLane(lane.size, width),
+          dir: Math.random() < 0.5 ? 1 : -1,
+          speed: randomSpeedForLane(lane),
+        };
+      }
+      return t;
+    }
+    const lane = lanes[t.laneIndex];
+    const min = lane.size / 2;
+    const max = width - lane.size / 2;
+    let nextX = t.x + t.dir * t.speed * dt;
+    let nextDir = t.dir;
+    let nextSpeed = t.speed;
+    if (nextX < min) {
+      nextX = min;
+      nextDir = 1;
+      nextSpeed = randomSpeedForLane(lane);
+    } else if (nextX > max) {
+      nextX = max;
+      nextDir = -1;
+      nextSpeed = randomSpeedForLane(lane);
+    }
+    const nextSpin = (t.spin + dt / (STAR_SPIN_MS / 1000)) % 1;
+    return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin };
+  });
+}
+
 function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
   return lanes.map((lane, laneIndex) => ({
     id: laneIndex,
@@ -100,20 +144,28 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
 interface Props {
   mode?: GameMode;
   bot?: BotConfig;
+  matchMs?: number;
   onExit: (finalScore: number) => void;
   onPlayAgain?: () => void;
 }
 
-export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: Props) {
+export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, onExit, onPlayAgain }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
   const playAreaHeight = height - topBarHeight;
-  const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
+  const isVsBot = mode === 'vs' && !!bot;
+  // In VS mode the bot gets its own visible mini-arena up top, playing at
+  // the same time as the player below it — not a turn-based "watch the bot
+  // play" mode.
+  const botAreaHeight = isVsBot ? Math.round(playAreaHeight * BOT_AREA_RATIO) : 0;
+  const playerAreaHeight = playAreaHeight - botAreaHeight;
+  const playerY = playerAreaHeight - PLAYER_BOTTOM_MARGIN;
 
   const idCounterRef = useRef(LANES.length);
   const playerXRef = useRef(width / 2);
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
+  const botTargetsRef = useRef<TargetState[]>(isVsBot ? makeInitialTargets(BOT_LANES, width) : []);
   const bulletsRef = useRef<BulletState[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const scoreRef = useRef(0);
@@ -137,11 +189,12 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
 
   const [playerX, setPlayerX] = useState(playerXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
+  const [botTargets, setBotTargets] = useState(botTargetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [popups, setPopups] = useState(popupsRef.current);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(Math.ceil(VS_MATCH_MS / 1000));
+  const [timeLeft, setTimeLeft] = useState(Math.ceil(matchMs / 1000));
   const [matchOver, setMatchOver] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
@@ -185,48 +238,18 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
 
       // VS mode match timer — once it hits zero, scoring freezes for both
       // sides but the scene keeps animating behind the result overlay.
-      let timeLeftMs = VS_MATCH_MS;
-      if (mode === 'vs') {
-        timeLeftMs = Math.max(0, VS_MATCH_MS - (now - matchStartRef.current));
+      let timeLeftMs = matchMs;
+      if (isVsBot) {
+        timeLeftMs = Math.max(0, matchMs - (now - matchStartRef.current));
         if (timeLeftMs <= 0 && !matchOverRef.current) {
           matchOverRef.current = true;
           setMatchOver(true);
         }
       }
-      targetsRef.current = targetsRef.current.map((t) => {
-        if (t.hitAt !== null) {
-          if (now - t.hitAt > t.respawnDelay) {
-            const lane = lanes[t.laneIndex];
-            return {
-              ...t,
-              hitAt: null,
-              x: randomXForLane(lane.size, width),
-              dir: Math.random() < 0.5 ? 1 : -1,
-              speed: randomSpeedForLane(lane),
-            };
-          }
-          return t;
-        }
-        const lane = lanes[t.laneIndex];
-        const min = lane.size / 2;
-        const max = width - lane.size / 2;
-        let nextX = t.x + t.dir * t.speed * dt;
-        let nextDir = t.dir;
-        let nextSpeed = t.speed;
-        if (nextX < min) {
-          nextX = min;
-          nextDir = 1;
-          nextSpeed = randomSpeedForLane(lane);
-        } else if (nextX > max) {
-          nextX = max;
-          nextDir = -1;
-          nextSpeed = randomSpeedForLane(lane);
-        }
-        // Spin is driven here, by the same clock as everything else, so it
-        // can never stall independently of the rest of the game.
-        const nextSpin = (t.spin + dt / (STAR_SPIN_MS / 1000)) % 1;
-        return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin };
-      });
+      targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
+      if (isVsBot) {
+        botTargetsRef.current = advanceTargets(botTargetsRef.current, BOT_LANES, width, dt, now);
+      }
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current);
@@ -241,7 +264,7 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
         for (const t of targetsRef.current) {
           if (t.hitAt !== null) continue;
           const lane = lanes[t.laneIndex];
-          const laneY = lane.y * playAreaHeight;
+          const laneY = lane.y * playerAreaHeight;
           if (
             Math.abs(b.y - laneY) <= HIT_BAND &&
             Math.abs(b.x - t.x) <= lane.size / 2
@@ -304,25 +327,32 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
       displayScoreRef.current =
         Math.abs(scoreDiff) < 0.5 ? scoreRef.current : displayScoreRef.current + scoreDiff * Math.min(1, dt * 8);
 
-      // Bot opponent: rolls for a hit on its own clock, independent of the
-      // player's targets — simple to balance per level, nothing to simulate
-      // physically.
-      if (mode === 'vs' && bot && !matchOverRef.current) {
+      // Bot opponent: rolls for a hit on its own clock and, on a hit, makes
+      // one of its own live mini-arena targets explode — visibly playing in
+      // the same real time as the player, not a number ticking up offscreen.
+      if (isVsBot && bot && !matchOverRef.current) {
         if (now >= botNextShotAtRef.current) {
           if (Math.random() < bot.hitChance) {
-            const botLane = LANES[Math.floor(Math.random() * LANES.length)];
-            botScoreRef.current += botLane.points;
-            popupsRef.current = [
-              ...popupsRef.current,
-              {
-                id: ++idCounterRef.current,
-                x: width * 0.85,
-                y: 46,
-                value: botLane.points,
-                color: bot.color,
-                createdAt: now,
-              },
-            ];
+            const liveBotTargets = botTargetsRef.current.filter((t) => t.hitAt === null);
+            const pool = liveBotTargets.length ? liveBotTargets : botTargetsRef.current;
+            const target = pool[Math.floor(Math.random() * pool.length)];
+            if (target) {
+              const botLane = BOT_LANES[target.laneIndex];
+              target.hitAt = now;
+              target.respawnDelay = randomRespawnDelay();
+              botScoreRef.current += botLane.points;
+              popupsRef.current = [
+                ...popupsRef.current,
+                {
+                  id: ++idCounterRef.current,
+                  x: target.x,
+                  y: botLane.y * botAreaHeight,
+                  value: botLane.points,
+                  color: bot.color,
+                  createdAt: now,
+                },
+              ];
+            }
           }
           botNextShotAtRef.current = now + bot.fireIntervalMs * (0.7 + Math.random() * 0.6);
         }
@@ -336,6 +366,7 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
       popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
 
       setTargets(targetsRef.current);
+      if (isVsBot) setBotTargets(botTargetsRef.current);
       setBullets(bulletsRef.current);
       setPopups(popupsRef.current);
       setDisplayScore(Math.round(displayScoreRef.current));
@@ -413,8 +444,12 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
   ).current;
 
   const laneYs = useMemo(
-    () => LANES.map((lane) => lane.y * playAreaHeight),
-    [playAreaHeight]
+    () => LANES.map((lane) => lane.y * playerAreaHeight),
+    [playerAreaHeight]
+  );
+  const botLaneYs = useMemo(
+    () => BOT_LANES.map((lane) => lane.y * botAreaHeight),
+    [botAreaHeight]
   );
 
   return (
@@ -424,11 +459,11 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
           <Text style={styles.homeButtonText}>⟵ HOME</Text>
         </Pressable>
         <View style={styles.statsRow}>
-          <Text style={styles.scoreLabel}>{mode === 'vs' ? 'YOU' : 'SCORE'}</Text>
+          <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
           <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
             {displayScore}
           </Animated.Text>
-          {mode === 'vs' && bot ? (
+          {isVsBot && bot ? (
             <>
               <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>
               <Text style={[styles.levelLabel, { color: bot.color }]}>
@@ -452,24 +487,36 @@ export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: 
         </View>
       </View>
 
-      <View
-        style={[styles.playArea, { height: playAreaHeight }, webTouchStyle]}
-        {...panResponder.panHandlers}
-      >
-        <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
-        {targets.map((t, i) => (
-          <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
-        ))}
-        {bullets.map((b) => (
-          <Bullet key={b.id} bullet={b} />
-        ))}
-        {popups.map((p) => (
-          <ScorePopup key={p.id} popup={p} />
-        ))}
-        <Player x={playerX} y={playerY} />
-        <LevelUpBanner event={levelUpEvent} />
+      <View style={{ height: playAreaHeight }}>
+        {isVsBot && bot && (
+          <View style={[styles.botArena, { height: botAreaHeight, borderColor: bot.color }]}>
+            <Starfield width={width} height={botAreaHeight} level={0} />
+            {botTargets.map((t, i) => (
+              <Target key={t.id} target={t} lane={BOT_LANES[t.laneIndex]} laneY={botLaneYs[i]} />
+            ))}
+            <Text style={[styles.botArenaLabel, { color: bot.color }]}>{bot.name.toUpperCase()}</Text>
+          </View>
+        )}
 
-        {mode === 'vs' && matchOver && bot && (
+        <View
+          style={[styles.playArea, { height: playerAreaHeight }, webTouchStyle]}
+          {...panResponder.panHandlers}
+        >
+          <Starfield width={width} height={playerAreaHeight} level={difficultyLevel} />
+          {targets.map((t, i) => (
+            <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
+          ))}
+          {bullets.map((b) => (
+            <Bullet key={b.id} bullet={b} />
+          ))}
+          {popups.map((p) => (
+            <ScorePopup key={p.id} popup={p} />
+          ))}
+          <Player x={playerX} y={playerY} />
+          <LevelUpBanner event={levelUpEvent} />
+        </View>
+
+        {isVsBot && matchOver && bot && (
           <View style={styles.resultOverlay}>
             <View style={styles.resultCard}>
               <Text style={styles.resultTitle}>
@@ -585,6 +632,20 @@ const styles = StyleSheet.create({
   playArea: {
     backgroundColor: COLORS.background,
     overflow: 'hidden',
+  },
+  botArena: {
+    backgroundColor: COLORS.background,
+    overflow: 'hidden',
+    borderBottomWidth: 1.5,
+  },
+  botArenaLabel: {
+    position: 'absolute',
+    top: 8,
+    left: 12,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
+    opacity: 0.85,
   },
   resultOverlay: {
     position: 'absolute',

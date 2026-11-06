@@ -1,11 +1,11 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Starfield from '../components/Starfield';
-import { BOT_LEVELS, COLORS } from '../constants';
+import { BOT_LEVELS, COLORS, VS_DURATION_OPTIONS } from '../constants';
 import { BotConfig } from '../types';
 
 interface Props {
-  onSelect: (bot: BotConfig) => void;
+  onSelect: (bot: BotConfig, matchMs: number) => void;
   onBack: () => void;
 }
 
@@ -36,6 +36,7 @@ function BotCard({ bot, blurb, onPress }: { bot: BotConfig; blurb: string; onPre
 
 export default function BotSelectScreen({ onSelect, onBack }: Props) {
   const { width, height } = useWindowDimensions();
+  const [matchMs, setMatchMs] = useState(VS_DURATION_OPTIONS[1]);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -46,11 +47,24 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
       </Pressable>
 
       <Text style={styles.title}>CHOOSE YOUR OPPONENT</Text>
-      <Text style={styles.subtitle}>A 60-second match. Highest score wins.</Text>
+      <Text style={styles.subtitle}>Same screen, same clock. Highest score when time's up wins.</Text>
+
+      <Text style={styles.durationLabel}>MATCH LENGTH</Text>
+      <View style={styles.durationRow}>
+        {VS_DURATION_OPTIONS.map((ms) => (
+          <Pressable key={ms} onPress={() => setMatchMs(ms)}>
+            <View style={[styles.durationChip, ms === matchMs && styles.durationChipActive]}>
+              <Text style={[styles.durationChipText, ms === matchMs && styles.durationChipTextActive]}>
+                {ms / 1000}s
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
 
       <View style={styles.cardStack}>
         {BOT_LEVELS.map((bot, i) => (
-          <BotCard key={bot.name} bot={bot} blurb={BLURB[i]} onPress={() => onSelect(bot)} />
+          <BotCard key={bot.name} bot={bot} blurb={BLURB[i]} onPress={() => onSelect(bot, matchMs)} />
         ))}
       </View>
     </View>
@@ -96,7 +110,40 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     fontSize: 13,
     marginTop: 8,
-    marginBottom: 36,
+    marginBottom: 28,
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+  durationLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    letterSpacing: 2,
+    marginBottom: 10,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  durationChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(16,12,38,0.5)',
+  },
+  durationChipActive: {
+    borderColor: COLORS.cyan,
+    backgroundColor: 'rgba(90,216,255,0.16)',
+  },
+  durationChipText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  durationChipTextActive: {
+    color: COLORS.textPrimary,
   },
   cardStack: {
     gap: 16,

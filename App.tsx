@@ -6,7 +6,7 @@ import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
-import { SPLASH_MIN_DURATION_MS } from './src/constants';
+import { SPLASH_MIN_DURATION_MS, VS_MATCH_MS } from './src/constants';
 import { getBestScore, saveBestScore } from './src/utils/storage';
 import { BotConfig, GameMode } from './src/types';
 
@@ -18,6 +18,7 @@ export default function App() {
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [mode, setMode] = useState<GameMode>('solo');
   const [bot, setBot] = useState<BotConfig | null>(null);
+  const [matchMs, setMatchMs] = useState(VS_MATCH_MS);
   const [runId, setRunId] = useState(0);
 
   useEffect(() => {
@@ -42,9 +43,10 @@ export default function App() {
     setPhase('playing');
   };
 
-  const selectBot = (chosen: BotConfig) => {
+  const selectBot = (chosen: BotConfig, chosenMatchMs: number) => {
     setMode('vs');
     setBot(chosen);
+    setMatchMs(chosenMatchMs);
     setRunId((r) => r + 1);
     setPhase('playing');
   };
@@ -67,7 +69,14 @@ export default function App() {
           <BotSelectScreen onSelect={selectBot} onBack={() => setPhase('home')} />
         )}
         {phase === 'playing' && (
-          <GameScreen key={runId} mode={mode} bot={bot ?? undefined} onExit={handleExit} onPlayAgain={playAgain} />
+          <GameScreen
+            key={runId}
+            mode={mode}
+            bot={bot ?? undefined}
+            matchMs={matchMs}
+            onExit={handleExit}
+            onPlayAgain={playAgain}
+          />
         )}
         <StatusBar style="light" />
       </View>
