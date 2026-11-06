@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { COLORS } from '../constants';
+import { LEVEL_THEMES, LEVELS_PER_THEME } from '../constants';
 
 interface Props {
   width: number;
   height: number;
+  level?: number;
 }
 
 interface Star {
@@ -30,16 +31,18 @@ function makeStars(width: number, height: number, count: number): Star[] {
   }));
 }
 
-export default function Starfield({ width, height }: Props) {
+export default function Starfield({ width, height, level = 0 }: Props) {
+  const theme = LEVEL_THEMES[Math.floor(level / LEVELS_PER_THEME) % LEVEL_THEMES.length];
   const stars = useMemo(() => makeStars(width, height, 70), [width, height]);
   const nebulae = useMemo<Nebula[]>(
     () => [
-      { x: width * 0.15, y: height * 0.15, size: Math.max(width, 220), color: COLORS.purple },
-      { x: width * 0.85, y: height * 0.55, size: Math.max(width, 260), color: COLORS.pink },
-      { x: width * 0.3, y: height * 0.85, size: Math.max(width, 200), color: COLORS.cyan },
+      { x: width * 0.15, y: height * 0.15, size: Math.max(width, 220), color: theme.nebula[0] },
+      { x: width * 0.85, y: height * 0.55, size: Math.max(width, 260), color: theme.nebula[1] },
+      { x: width * 0.3, y: height * 0.85, size: Math.max(width, 200), color: theme.nebula[2] },
     ],
-    [width, height]
+    [width, height, theme]
   );
+  const moonSize = 64 + Math.min(level, 10) * 4;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -76,6 +79,45 @@ export default function Starfield({ width, height }: Props) {
           ]}
         />
       ))}
+      <View
+        style={[
+          styles.moonGlow,
+          {
+            width: moonSize * 2,
+            height: moonSize * 2,
+            borderRadius: moonSize,
+            right: -moonSize * 0.6,
+            top: 18,
+            backgroundColor: theme.moon,
+            shadowColor: theme.moon,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.moon,
+          {
+            width: moonSize,
+            height: moonSize,
+            borderRadius: moonSize / 2,
+            right: moonSize * 0.4,
+            top: 18 + moonSize * 0.3,
+            backgroundColor: theme.moon,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.moonShadow,
+            {
+              width: moonSize * 0.75,
+              height: moonSize * 0.95,
+              borderRadius: moonSize / 2,
+              right: -moonSize * 0.22,
+            },
+          ]}
+        />
+      </View>
     </View>
   );
 }
@@ -91,5 +133,23 @@ const styles = StyleSheet.create({
   star: {
     position: 'absolute',
     backgroundColor: '#ffffff',
+  },
+  moonGlow: {
+    position: 'absolute',
+    opacity: 0.18,
+    shadowOpacity: 1,
+    shadowRadius: 40,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  moon: {
+    position: 'absolute',
+    overflow: 'hidden',
+    opacity: 0.9,
+  },
+  moonShadow: {
+    position: 'absolute',
+    top: 0,
+    backgroundColor: '#05030f',
+    opacity: 0.85,
   },
 });

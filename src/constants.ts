@@ -26,15 +26,25 @@ export const LANES: LaneConfig[] = [
   { y: 0.52, size: 24, speed: 70, points: 10, color: COLORS.cyan },
 ];
 
-// Difficulty tracks a hit STREAK, not lifetime hits: every DIFFICULTY_STEP_HITS
-// consecutive-ish hits, targets get a bit faster and smaller (capped so it
-// never becomes impossible). A missed shot eases it back down one step
-// instead of resetting outright, so one slip doesn't undo a run.
-export const DIFFICULTY_STEP_HITS = 4;
-export const DIFFICULTY_SPEED_STEP = 0.12; // +12% speed per step
-export const DIFFICULTY_SIZE_STEP = 0.07; // -7% size per step
-export const DIFFICULTY_MAX_LEVEL = 10;
-export const DIFFICULTY_MIN_SIZE_MULTIPLIER = 0.55;
+// Difficulty climbs with total hits landed: every DIFFICULTY_STEP_HITS hits,
+// targets get a bit faster and smaller. Misses don't cost a level — they just
+// don't add to it — so a long session keeps climbing as long as the player
+// keeps landing shots, all the way up to DIFFICULTY_MAX_LEVEL.
+export const DIFFICULTY_STEP_HITS = 3;
+export const DIFFICULTY_SPEED_STEP = 0.1; // +10% speed per level
+export const DIFFICULTY_SIZE_STEP = 0.05; // -5% size per level
+export const DIFFICULTY_MAX_LEVEL = 24;
+export const DIFFICULTY_MIN_SIZE_MULTIPLIER = 0.4;
+
+// Background theme cycles through these every few levels so leveling up
+// visibly changes the scene, not just the numbers.
+export const LEVEL_THEMES = [
+  { nebula: ['#8a5cff', '#ff5cb3', '#5ad8ff'], moon: '#d8d2ff' },
+  { nebula: ['#ff5cb3', '#ff9c5a', '#5ad8ff'], moon: '#ffd8c2' },
+  { nebula: ['#5ad8ff', '#5affb0', '#8a5cff'], moon: '#c2fff0' },
+  { nebula: ['#ff5a5a', '#ff5cb3', '#ffd25a'], moon: '#ffd2d2' },
+];
+export const LEVELS_PER_THEME = 3;
 
 export const PLAYER_SIZE = 56;
 export const PLAYER_SPEED = 260; // px/sec

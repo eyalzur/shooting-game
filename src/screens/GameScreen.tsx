@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Bullet from '../components/Bullet';
+import LevelUpBanner from '../components/LevelUpBanner';
 import Player from '../components/Player';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
@@ -59,7 +60,7 @@ export default function GameScreen() {
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
   const scoreRef = useRef(0);
-  const streakRef = useRef(0);
+  const hitsRef = useRef(0);
   const difficultyLevelRef = useRef(0);
   const emittedLevelRef = useRef(0);
   const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
@@ -71,6 +72,8 @@ export default function GameScreen() {
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [score, setScore] = useState(0);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
+  const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
+  const levelUpIdRef = useRef(0);
 
   // difficultyLevelRef is the source of truth, advanced inside the game
   // loop; difficultyLevel state only mirrors it for rendering, so this must
@@ -125,12 +128,10 @@ export default function GameScreen() {
         return { ...t, x: nextX, dir: nextDir };
       });
 
-      // Bullets: move up, drop once off-screen. A bullet that leaves the top
-      // without ever hitting anything is a missed shot.
-      const movedBullets = bulletsRef.current.map((b) => ({ ...b, y: b.y - BULLET_SPEED * dt }));
-      const aliveBullets = movedBullets.filter((b) => b.y > -20);
-      let missedCount = movedBullets.length - aliveBullets.length;
-      bulletsRef.current = aliveBullets;
+      // Bullets: move up, drop once off-screen.
+      bulletsRef.current = bulletsRef.current
+        .map((b) => ({ ...b, y: b.y - BULLET_SPEED * dt }))
+        .filter((b) => b.y > -20);
 
       // Collisions: a live bullet entering a lane's hit band near a live target.
       const remainingBullets: BulletState[] = [];
@@ -146,7 +147,7 @@ export default function GameScreen() {
           ) {
             t.hitAt = now;
             scoreRef.current += lane.points;
-            streakRef.current += 1;
+            hitsRef.current += 1;
             hitSomething = true;
             break;
           }
@@ -155,27 +156,23 @@ export default function GameScreen() {
       }
       bulletsRef.current = remainingBullets;
 
-      // Difficulty ramps up on a hit streak; a miss eases it back one step
-      // (not a hard reset), so a single slip doesn't undo a whole run.
-      while (missedCount > 0) {
-        if (difficultyLevelRef.current > 0) {
-          difficultyLevelRef.current -= 1;
-          streakRef.current = difficultyLevelRef.current * DIFFICULTY_STEP_HITS;
-        } else {
-          streakRef.current = 0;
-        }
-        missedCount -= 1;
-      }
-      const streakLevel = Math.min(
+      // Difficulty climbs with total hits landed and never drops — a miss
+      // just doesn't add to it, so a long run keeps climbing.
+      const newLevel = Math.min(
         DIFFICULTY_MAX_LEVEL,
-        Math.floor(streakRef.current / DIFFICULTY_STEP_HITS)
+        Math.floor(hitsRef.current / DIFFICULTY_STEP_HITS)
       );
-      if (streakLevel > difficultyLevelRef.current) {
-        difficultyLevelRef.current = streakLevel;
+      if (newLevel !== difficultyLevelRef.current) {
+        difficultyLevelRef.current = newLevel;
       }
       if (difficultyLevelRef.current !== emittedLevelRef.current) {
+        const leveledUp = difficultyLevelRef.current > emittedLevelRef.current;
         emittedLevelRef.current = difficultyLevelRef.current;
         setDifficultyLevel(difficultyLevelRef.current);
+        if (leveledUp) {
+          levelUpIdRef.current += 1;
+          setLevelUpEvent({ level: difficultyLevelRef.current, id: levelUpIdRef.current });
+        }
       }
 
       setTargets(targetsRef.current);
@@ -267,7 +264,7 @@ export default function GameScreen() {
         style={[styles.playArea, { height: playAreaHeight }, webTouchStyle]}
         {...panResponder.panHandlers}
       >
-        <Starfield width={width} height={playAreaHeight} />
+        <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
         {targets.map((t, i) => (
           <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
         ))}
@@ -275,6 +272,7 @@ export default function GameScreen() {
           <Bullet key={b.id} bullet={b} />
         ))}
         <Player x={playerX} y={playerY} />
+        <LevelUpBanner event={levelUpEvent} />
       </View>
     </View>
   );
