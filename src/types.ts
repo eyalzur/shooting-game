@@ -83,6 +83,16 @@ export interface ShopItemDef {
   price: number;
 }
 
+/** A cosmetic Stardust pack — priceLabel is display-only text (e.g. "$0.99");
+ * no payment is ever processed. Tapping grants `amount` Stardust directly. */
+export interface CurrencyPackDef {
+  id: string;
+  icon: string;
+  name: string;
+  amount: number;
+  priceLabel: string;
+}
+
 /** One release note on the changelog screen. icon is a big emoji shown like
  * an illustration (this project has no image-asset pipeline), not just a
  * bullet marker. */

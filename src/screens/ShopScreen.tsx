@@ -9,6 +9,7 @@ interface Props {
   currency: number;
   ownedUpgrades: UpgradeId[];
   onPurchase: (id: UpgradeId, price: number) => void;
+  onOpenCurrencyShop: () => void;
   onBack: () => void;
 }
 
@@ -44,7 +45,7 @@ function ShopItemCard({
   );
 }
 
-export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onBack }: Props) {
+export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpenCurrencyShop, onBack }: Props) {
   const { width, height } = useWindowDimensions();
 
   return (
@@ -68,6 +69,17 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onBack
         <Text style={styles.balanceValue}>{currency}</Text>
         <Text style={styles.balanceLabel}>{CURRENCY_NAME.toUpperCase()}</Text>
       </View>
+
+      <PressableScale
+        onPress={() => {
+          playUiTap();
+          onOpenCurrencyShop();
+        }}
+        style={styles.getMoreButton}
+        scaleTo={0.94}
+      >
+        <Text style={styles.getMoreButtonText}>💰 GET MORE {CURRENCY_ICON}</Text>
+      </PressableScale>
 
       <View style={styles.itemStack}>
         {SHOP_ITEMS.map((item) => (
@@ -129,7 +141,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 28,
-    marginBottom: 26,
+    marginBottom: 14,
+  },
+  getMoreButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,210,90,0.4)',
+    backgroundColor: 'rgba(255,210,90,0.1)',
+    marginBottom: 24,
+  },
+  getMoreButtonText: {
+    color: COLORS.gold,
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   balanceIcon: {
     fontSize: 18,

@@ -1,4 +1,4 @@
-import { ChangelogEntry, LaneConfig, ShopItemDef } from './types';
+import { ChangelogEntry, CurrencyPackDef, LaneConfig, ShopItemDef } from './types';
 
 export const GAME_NAME = 'Nova Strike';
 
@@ -255,6 +255,17 @@ export const EXTRA_CHARGE_BONUS = 1;
 export const CURRENCY_NAME = 'Stardust';
 export const CURRENCY_ICON = '✨';
 export const WIN_CURRENCY_REWARD = 25;
+
+// Currency packs — a cosmetic "buy Stardust" store, built to look and feel
+// like a real purchase flow (pack cards + a price tag). No payment is ever
+// processed and nothing talks to the App Store / Play Store — this is a
+// web PWA with no store distribution anyway. Tapping a pack hands over
+// `amount` Stardust immediately, same as any other earned Stardust.
+export const CURRENCY_PACKS: CurrencyPackDef[] = [
+  { id: 'small', icon: '🎁', name: 'SMALL PACK', amount: 100, priceLabel: '$0.99' },
+  { id: 'medium', icon: '💎', name: 'MEDIUM PACK', amount: 300, priceLabel: '$2.99' },
+  { id: 'large', icon: '👑', name: 'LARGE PACK', amount: 750, priceLabel: '$5.99' },
+];
 
 // Shop catalog — the player's cannon is the "avatar" here (this game has no
 // other character art), so every upgrade is framed as modifying it. Owned
