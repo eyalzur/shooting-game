@@ -31,6 +31,16 @@
         height: 100%;
         flex: 1;
       }
+      /* No selectable text, no long-press callouts, no tap-highlight flash —
+         this is a game, not a document. */
+      * {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
     </style>
   <meta name="theme-color" content="#101522">
 <link rel="icon" href="/shooting-game/favicon.ico"/></head>
@@ -46,6 +56,6 @@
         });
       }
     </script>
-  <script src="/shooting-game/_expo/static/js/web/index-314f6ab927e6139cb04ad0a128313598.js" defer></script>
+  <script src="/shooting-game/_expo/static/js/web/index-96ce4dc2723468f9c16efd49d1e123ec.js" defer></script>
 </body>
 </html>
