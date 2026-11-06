@@ -28,6 +28,9 @@ import {
   MAX_BULLETS,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
+  PLAYER_SPEED,
+  PLAYER_SLIDE_MIN_MS,
+  PLAYER_SLIDE_MAX_MS,
   RESPAWN_MAX_MS,
   RESPAWN_MIN_MS,
   SCORE_POPUP_MS,
@@ -196,7 +199,8 @@ export default function GameScreen({
   const botDisplayScoreRef = useRef(0);
   const botNextShotAtRef = useRef(matchStartRef.current + (bot?.fireIntervalMs ?? 0) * (0.4 + Math.random() * 0.4));
 
-  const [playerX, setPlayerX] = useState(playerXRef.current);
+  const playerXAnim = useRef(new Animated.Value(playerXRef.current)).current;
+  const playerXAnimTargetRef = useRef(playerXRef.current);
   const [botX, setBotX] = useState(botXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
@@ -273,6 +277,8 @@ export default function GameScreen({
       Math.max(playerXRef.current, PLAYER_SIZE / 2),
       width - PLAYER_SIZE / 2
     );
+    playerXAnimTargetRef.current = playerXRef.current;
+    playerXAnim.setValue(playerXRef.current);
   }, [width]);
 
   // Ambient music plays while actually in a match, stops the instant you
@@ -495,8 +501,20 @@ export default function GameScreen({
   const isHoldRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveTo = (pageX: number) => {
-    playerXRef.current = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
-    setPlayerX(playerXRef.current);
+    const clamped = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
+    playerXRef.current = clamped;
+    const dist = Math.abs(clamped - playerXAnimTargetRef.current);
+    playerXAnimTargetRef.current = clamped;
+    const duration = Math.min(
+      PLAYER_SLIDE_MAX_MS,
+      Math.max(PLAYER_SLIDE_MIN_MS, (dist / PLAYER_SPEED) * 1000)
+    );
+    Animated.timing(playerXAnim, {
+      toValue: clamped,
+      duration,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
   };
   useEffect(() => {
     return () => {
@@ -615,7 +633,7 @@ export default function GameScreen({
             <ScorePopup key={p.id} popup={p} />
           ))}
           {isVsBot && bot && <Player x={botX} y={playerY} color={bot.color} />}
-          <Player x={playerX} y={playerY} />
+          <Player x={playerXAnim} y={playerY} />
           <LevelUpBanner event={levelUpEvent} />
         </View>
 

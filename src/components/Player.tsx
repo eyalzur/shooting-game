@@ -1,8 +1,8 @@
-import { StyleSheet, View } from 'react-native';
+import { Animated, StyleSheet, View } from 'react-native';
 import { COLORS, PLAYER_SIZE } from '../constants';
 
 interface Props {
-  x: number;
+  x: number | Animated.Value;
   y: number;
   color?: string;
 }
@@ -10,18 +10,22 @@ interface Props {
 // No avatar, no character — just the point the shots come from: a glowing
 // cannon tip. Color defaults to the player's blue; a bot opponent passes
 // its own red so both cannons read as clearly different on one board.
+// x is positioned via transform (not left) so the live player's slide
+// animation can drive it as an Animated.Value while the bot keeps using a
+// plain number.
 export default function Player({ x, y, color = COLORS.blue }: Props) {
+  const translateX = typeof x === 'number' ? x - PLAYER_SIZE / 2 : Animated.subtract(x, PLAYER_SIZE / 2);
   return (
-    <View
+    <Animated.View
       style={[
         styles.wrap,
-        { left: x - PLAYER_SIZE / 2, top: y - PLAYER_SIZE / 2 },
+        { top: y - PLAYER_SIZE / 2, transform: [{ translateX }] },
       ]}
     >
       <View style={[styles.glow, { backgroundColor: color, shadowColor: color }]} />
       <View style={[styles.base, { backgroundColor: color }]} />
       <View style={[styles.tip, { borderBottomColor: color, shadowColor: color }]} />
-    </View>
+    </Animated.View>
   );
 }
 

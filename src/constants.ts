@@ -70,6 +70,8 @@ export const LEVELS_PER_THEME = 1;
 export const PLAYER_SIZE = 56;
 export const PLAYER_SPEED = 260; // px/sec
 export const PLAYER_BOTTOM_MARGIN = 24;
+export const PLAYER_SLIDE_MIN_MS = 70;
+export const PLAYER_SLIDE_MAX_MS = 220;
 
 export const BULLET_SIZE = 18; // spinning stone diameter, px
 export const BULLET_SPEED = 640; // px/sec, upward
