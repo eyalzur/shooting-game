@@ -96,17 +96,19 @@ export const TAP_MAX_DISTANCE = 18; // px
 export const TAP_MAX_DURATION_MS = 250;
 
 // VS mode: a timed match against a simulated "robo player" opponent, picked
-// at the start, playing side by side on the same screen at the same time
-// (not a turn-based "wait for the bot" mode). The bot has its own small
-// mini-arena with its own live targets, so it's visibly playing in
-// real time — it just rolls for a hit on its own interval rather than
-// simulating real bullet physics, simple and easy to balance by level.
+// at the start, playing on the SAME board as the player — same targets,
+// same bottom row, both cannons visibly moving and firing at the same time.
+// The bot isn't a dice roll: it physically tracks the nearest live target
+// and fires at its own real x position, so misses happen because its aim
+// or reflexes are worse, same as a real player would miss.
 export const VS_MATCH_MS = 60000;
 export const VS_DURATION_OPTIONS = [30000, 60000, 90000];
 export const BOT_LEVELS = [
-  { name: 'Rookie', hitChance: 0.3, fireIntervalMs: 1700, color: COLORS.cyan },
-  { name: 'Veteran', hitChance: 0.5, fireIntervalMs: 1250, color: COLORS.purple },
-  { name: 'Ace', hitChance: 0.7, fireIntervalMs: 900, color: COLORS.pink },
+  { name: 'Rookie', color: COLORS.cyan, trackSpeed: 100, aimJitter: 46, fireIntervalMs: 1500 },
+  { name: 'Veteran', color: COLORS.purple, trackSpeed: 170, aimJitter: 22, fireIntervalMs: 1150 },
+  { name: 'Ace', color: COLORS.pink, trackSpeed: 250, aimJitter: 8, fireIntervalMs: 850 },
 ];
-export const BOT_AREA_RATIO = 0.34; // fraction of the play area given to the bot's mini-arena
-export const BOT_LANE_SIZE_SCALE = 0.65; // bot targets render smaller, it's a mini-arena
+// How fast the bot's aim wobbles via a random walk (px/sec of drift), on
+// top of its per-level aimJitter amplitude — keeps its aim visibly unsteady
+// rather than snapping to a fixed offset.
+export const BOT_JITTER_WALK_SPEED = 70;

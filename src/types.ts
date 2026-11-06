@@ -30,6 +30,10 @@ export interface BulletState {
   id: number;
   x: number;
   y: number;
+  /** Whose shot this is — decides who gets credited on a hit. */
+  owner: 'player' | 'bot';
+  /** Tint for a bot's shot, so it reads as visibly different from the player's. */
+  color?: string;
 }
 
 export interface ScorePopupState {
@@ -45,7 +49,10 @@ export type GameMode = 'solo' | 'vs';
 
 export interface BotConfig {
   name: string;
-  hitChance: number;
-  fireIntervalMs: number;
   color: string;
+  /** How fast the bot's cannon chases the nearest live target, px/sec. */
+  trackSpeed: number;
+  /** Max aim wobble amplitude in px — larger means less precise. */
+  aimJitter: number;
+  fireIntervalMs: number;
 }

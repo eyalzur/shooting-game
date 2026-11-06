@@ -8,8 +8,7 @@ import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
-  BOT_AREA_RATIO,
-  BOT_LANE_SIZE_SCALE,
+  BOT_JITTER_WALK_SPEED,
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
   BULLET_SPEED_STEP,
@@ -40,11 +39,6 @@ import {
 import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
-
-// The bot's mini-arena uses the same lanes, just smaller — it's a real,
-// independently-live playfield, not just a number ticking up, so it's
-// obvious both sides are playing at the same time.
-const BOT_LANES: LaneConfig[] = LANES.map((lane) => ({ ...lane, size: lane.size * BOT_LANE_SIZE_SCALE }));
 
 // Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
@@ -155,17 +149,15 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
   const playAreaHeight = height - topBarHeight;
   const isVsBot = mode === 'vs' && !!bot;
-  // In VS mode the bot gets its own visible mini-arena up top, playing at
-  // the same time as the player below it — not a turn-based "watch the bot
-  // play" mode.
-  const botAreaHeight = isVsBot ? Math.round(playAreaHeight * BOT_AREA_RATIO) : 0;
-  const playerAreaHeight = playAreaHeight - botAreaHeight;
-  const playerY = playerAreaHeight - PLAYER_BOTTOM_MARGIN;
+  const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
 
   const idCounterRef = useRef(LANES.length);
   const playerXRef = useRef(width / 2);
+  // Bot plays on the same board, same bottom row, same shared targets — it
+  // just has its own cannon position that it moves on its own.
+  const botXRef = useRef(width * 0.5);
+  const botAimJitterRef = useRef(0);
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
-  const botTargetsRef = useRef<TargetState[]>(isVsBot ? makeInitialTargets(BOT_LANES, width) : []);
   const bulletsRef = useRef<BulletState[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const scoreRef = useRef(0);
@@ -178,9 +170,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
   const rafRef = useRef<number | null>(null);
   const chargesRef = useRef(FIRE_MAX_CHARGES);
 
-  // VS mode: a simulated bot opponent, scored independently of the player's
-  // own targets — it just rolls for a hit on its own interval, timed to a
-  // fixed match length.
+  // VS mode: a bot opponent sharing the player's board and clock.
   const matchStartRef = useRef(Date.now());
   const matchOverRef = useRef(false);
   const botScoreRef = useRef(0);
@@ -188,8 +178,8 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
   const botNextShotAtRef = useRef(matchStartRef.current + (bot?.fireIntervalMs ?? 0) * (0.4 + Math.random() * 0.4));
 
   const [playerX, setPlayerX] = useState(playerXRef.current);
+  const [botX, setBotX] = useState(botXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
-  const [botTargets, setBotTargets] = useState(botTargetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [popups, setPopups] = useState(popupsRef.current);
   const [displayScore, setDisplayScore] = useState(0);
@@ -247,9 +237,6 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
         }
       }
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
-      if (isVsBot) {
-        botTargetsRef.current = advanceTargets(botTargetsRef.current, BOT_LANES, width, dt, now);
-      }
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current);
@@ -257,14 +244,16 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
         .map((b) => ({ ...b, y: b.y - bulletSpeed * dt }))
         .filter((b) => b.y > -20);
 
-      // Collisions: a live bullet entering a lane's hit band near a live target.
+      // Collisions: a live bullet (either owner's) entering a lane's hit
+      // band near a live target. Both player and bot shoot the same shared
+      // targets, so whoever's bullet gets there first scores it.
       const remainingBullets: BulletState[] = [];
       for (const b of bulletsRef.current) {
         let hitSomething = false;
         for (const t of targetsRef.current) {
           if (t.hitAt !== null) continue;
           const lane = lanes[t.laneIndex];
-          const laneY = lane.y * playerAreaHeight;
+          const laneY = lane.y * playAreaHeight;
           if (
             Math.abs(b.y - laneY) <= HIT_BAND &&
             Math.abs(b.x - t.x) <= lane.size / 2
@@ -272,20 +261,21 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
             t.hitAt = now;
             t.respawnDelay = randomRespawnDelay();
             if (!matchOverRef.current) {
-              scoreRef.current += lane.points;
-              hitsRef.current += 1;
-              popupsRef.current = [
-                ...popupsRef.current,
-                {
-                  id: ++idCounterRef.current,
-                  x: t.x,
-                  y: laneY,
-                  value: lane.points,
-                  color: lane.color,
-                  createdAt: now,
-                },
-              ];
-              triggerScorePulse();
+              if (b.owner === 'player') {
+                scoreRef.current += lane.points;
+                hitsRef.current += 1;
+                popupsRef.current = [
+                  ...popupsRef.current,
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: lane.color, createdAt: now },
+                ];
+                triggerScorePulse();
+              } else if (bot) {
+                botScoreRef.current += lane.points;
+                popupsRef.current = [
+                  ...popupsRef.current,
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: bot.color, createdAt: now },
+                ];
+              }
             }
             hitSomething = true;
             break;
@@ -327,35 +317,54 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
       displayScoreRef.current =
         Math.abs(scoreDiff) < 0.5 ? scoreRef.current : displayScoreRef.current + scoreDiff * Math.min(1, dt * 8);
 
-      // Bot opponent: rolls for a hit on its own clock and, on a hit, makes
-      // one of its own live mini-arena targets explode — visibly playing in
-      // the same real time as the player, not a number ticking up offscreen.
+      // Bot opponent: physically tracks the nearest live target and fires
+      // at its own real cannon position on the same shared board — misses
+      // happen because its aim or reflexes are worse, not a coin flip.
       if (isVsBot && bot && !matchOverRef.current) {
-        if (now >= botNextShotAtRef.current) {
-          if (Math.random() < bot.hitChance) {
-            const liveBotTargets = botTargetsRef.current.filter((t) => t.hitAt === null);
-            const pool = liveBotTargets.length ? liveBotTargets : botTargetsRef.current;
-            const target = pool[Math.floor(Math.random() * pool.length)];
-            if (target) {
-              const botLane = BOT_LANES[target.laneIndex];
-              target.hitAt = now;
-              target.respawnDelay = randomRespawnDelay();
-              botScoreRef.current += botLane.points;
-              popupsRef.current = [
-                ...popupsRef.current,
-                {
-                  id: ++idCounterRef.current,
-                  x: target.x,
-                  y: botLane.y * botAreaHeight,
-                  value: botLane.points,
-                  color: bot.color,
-                  createdAt: now,
-                },
-              ];
+        botAimJitterRef.current = Math.max(
+          -bot.aimJitter,
+          Math.min(bot.aimJitter, botAimJitterRef.current + (Math.random() - 0.5) * BOT_JITTER_WALK_SPEED * dt)
+        );
+
+        const liveTargets = targetsRef.current.filter((t) => t.hitAt === null);
+        if (liveTargets.length) {
+          let nearest = liveTargets[0];
+          let nearestDist = Math.abs(nearest.x - botXRef.current);
+          for (const t of liveTargets) {
+            const d = Math.abs(t.x - botXRef.current);
+            if (d < nearestDist) {
+              nearest = t;
+              nearestDist = d;
             }
           }
-          botNextShotAtRef.current = now + bot.fireIntervalMs * (0.7 + Math.random() * 0.6);
+          // Lead the shot: aim at where the target will be by the time a
+          // bullet fired now would reach its lane, not where it is right
+          // now — otherwise every shot trails a moving target and misses.
+          const nearestLane = lanes[nearest.laneIndex];
+          const travelDist = Math.max(0, playerY - PLAYER_SIZE / 2 - nearestLane.y * playAreaHeight);
+          const travelTime = travelDist / bulletSpeed;
+          const predictedX = nearest.x + nearest.dir * nearest.speed * travelTime;
+          const desiredX = Math.min(
+            Math.max(predictedX + botAimJitterRef.current, PLAYER_SIZE / 2),
+            width - PLAYER_SIZE / 2
+          );
+          const dx = desiredX - botXRef.current;
+          const step = Math.min(Math.abs(dx), bot.trackSpeed * dt);
+          botXRef.current += Math.sign(dx) * step;
         }
+        setBotX(botXRef.current);
+
+        if (
+          now >= botNextShotAtRef.current &&
+          bulletsRef.current.filter((b) => b.owner === 'bot').length < MAX_BULLETS
+        ) {
+          bulletsRef.current = [
+            ...bulletsRef.current,
+            { id: ++idCounterRef.current, x: botXRef.current, y: playerY - PLAYER_SIZE / 2, owner: 'bot', color: bot.color },
+          ];
+          botNextShotAtRef.current = now + bot.fireIntervalMs * (0.75 + Math.random() * 0.5);
+        }
+
         const botDiff = botScoreRef.current - botDisplayScoreRef.current;
         botDisplayScoreRef.current =
           Math.abs(botDiff) < 0.5 ? botScoreRef.current : botDisplayScoreRef.current + botDiff * Math.min(1, dt * 8);
@@ -366,7 +375,6 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
       popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
 
       setTargets(targetsRef.current);
-      if (isVsBot) setBotTargets(botTargetsRef.current);
       setBullets(bulletsRef.current);
       setPopups(popupsRef.current);
       setDisplayScore(Math.round(displayScoreRef.current));
@@ -383,7 +391,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
 
   const fire = () => {
     if (chargesRef.current < 1) return;
-    if (bulletsRef.current.length >= MAX_BULLETS) return;
+    if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     chargesRef.current -= 1;
     setCharges(chargesRef.current);
     bulletsRef.current = [
@@ -392,6 +400,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
         id: ++idCounterRef.current,
         x: playerXRef.current,
         y: playerY - PLAYER_SIZE / 2,
+        owner: 'player',
       },
     ];
     setBullets(bulletsRef.current);
@@ -444,12 +453,8 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
   ).current;
 
   const laneYs = useMemo(
-    () => LANES.map((lane) => lane.y * playerAreaHeight),
-    [playerAreaHeight]
-  );
-  const botLaneYs = useMemo(
-    () => BOT_LANES.map((lane) => lane.y * botAreaHeight),
-    [botAreaHeight]
+    () => LANES.map((lane) => lane.y * playAreaHeight),
+    [playAreaHeight]
   );
 
   return (
@@ -488,21 +493,11 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
       </View>
 
       <View style={{ height: playAreaHeight }}>
-        {isVsBot && bot && (
-          <View style={[styles.botArena, { height: botAreaHeight, borderColor: bot.color }]}>
-            <Starfield width={width} height={botAreaHeight} level={0} />
-            {botTargets.map((t, i) => (
-              <Target key={t.id} target={t} lane={BOT_LANES[t.laneIndex]} laneY={botLaneYs[i]} />
-            ))}
-            <Text style={[styles.botArenaLabel, { color: bot.color }]}>{bot.name.toUpperCase()}</Text>
-          </View>
-        )}
-
         <View
-          style={[styles.playArea, { height: playerAreaHeight }, webTouchStyle]}
+          style={[styles.playArea, { height: playAreaHeight }, webTouchStyle]}
           {...panResponder.panHandlers}
         >
-          <Starfield width={width} height={playerAreaHeight} level={difficultyLevel} />
+          <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
           {targets.map((t, i) => (
             <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
           ))}
@@ -512,6 +507,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
           {popups.map((p) => (
             <ScorePopup key={p.id} popup={p} />
           ))}
+          {isVsBot && bot && <Player x={botX} y={playerY} color={bot.color} />}
           <Player x={playerX} y={playerY} />
           <LevelUpBanner event={levelUpEvent} />
         </View>
@@ -632,20 +628,6 @@ const styles = StyleSheet.create({
   playArea: {
     backgroundColor: COLORS.background,
     overflow: 'hidden',
-  },
-  botArena: {
-    backgroundColor: COLORS.background,
-    overflow: 'hidden',
-    borderBottomWidth: 1.5,
-  },
-  botArenaLabel: {
-    position: 'absolute',
-    top: 8,
-    left: 12,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
-    opacity: 0.85,
   },
   resultOverlay: {
     position: 'absolute',

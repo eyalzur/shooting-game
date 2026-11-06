@@ -4,11 +4,13 @@ import { COLORS, PLAYER_SIZE } from '../constants';
 interface Props {
   x: number;
   y: number;
+  color?: string;
 }
 
 // No avatar, no character — just the point the shots come from: a glowing
-// cannon tip under your finger.
-export default function Player({ x, y }: Props) {
+// cannon tip. Color defaults to the player's cyan; a bot opponent passes
+// its own color so both cannons read as clearly different on one board.
+export default function Player({ x, y, color = COLORS.cyan }: Props) {
   return (
     <View
       style={[
@@ -16,9 +18,9 @@ export default function Player({ x, y }: Props) {
         { left: x - PLAYER_SIZE / 2, top: y - PLAYER_SIZE / 2 },
       ]}
     >
-      <View style={styles.glow} />
-      <View style={styles.base} />
-      <View style={styles.tip} />
+      <View style={[styles.glow, { backgroundColor: color, shadowColor: color }]} />
+      <View style={[styles.base, { backgroundColor: color }]} />
+      <View style={[styles.tip, { borderBottomColor: color, shadowColor: color }]} />
     </View>
   );
 }
@@ -36,9 +38,7 @@ const styles = StyleSheet.create({
     width: PLAYER_SIZE * 0.8,
     height: PLAYER_SIZE * 0.8,
     borderRadius: PLAYER_SIZE / 2,
-    backgroundColor: COLORS.cyan,
     opacity: 0.3,
-    shadowColor: COLORS.cyan,
     shadowOpacity: 1,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 0 },
@@ -49,7 +49,6 @@ const styles = StyleSheet.create({
     width: PLAYER_SIZE * 0.5,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.cyan,
     opacity: 0.9,
   },
   tip: {
@@ -62,8 +61,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: PLAYER_SIZE * 0.42,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: COLORS.cyan,
-    shadowColor: COLORS.cyan,
     shadowOpacity: 0.9,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 0 },

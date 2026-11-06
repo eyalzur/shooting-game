@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { BULLET_SIZE, BULLET_SPIN_MS, COLORS } from '../constants';
 import { BulletState } from '../types';
 
@@ -20,25 +20,53 @@ export default function Bullet({ bullet }: { bullet: BulletState }) {
   }, [spin]);
 
   const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const tint = bullet.color;
+  const glowSize = BULLET_SIZE * 1.8;
 
   return (
-    <Animated.View
-      style={[
-        styles.stone,
-        {
-          left: bullet.x - BULLET_SIZE / 2,
-          top: bullet.y - BULLET_SIZE / 2,
-          transform: [{ rotate }],
-        },
-      ]}
-    >
-      <Animated.View style={[styles.crater, styles.craterA]} />
-      <Animated.View style={[styles.crater, styles.craterB]} />
-    </Animated.View>
+    <View style={{ position: 'absolute', left: bullet.x, top: bullet.y }}>
+      {tint && (
+        <View
+          style={[
+            styles.glow,
+            {
+              left: -glowSize / 2,
+              top: -glowSize / 2,
+              width: glowSize,
+              height: glowSize,
+              borderRadius: glowSize / 2,
+              backgroundColor: tint,
+              shadowColor: tint,
+            },
+          ]}
+        />
+      )}
+      <Animated.View
+        style={[
+          styles.stone,
+          {
+            left: -BULLET_SIZE / 2,
+            top: -BULLET_SIZE / 2,
+            borderColor: tint ?? COLORS.stoneDark,
+            transform: [{ rotate }],
+          },
+        ]}
+      >
+        <Animated.View style={[styles.crater, styles.craterA]} />
+        <Animated.View style={[styles.crater, styles.craterB]} />
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  glow: {
+    position: 'absolute',
+    opacity: 0.45,
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
   stone: {
     position: 'absolute',
     width: BULLET_SIZE,
