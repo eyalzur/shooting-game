@@ -9,6 +9,17 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.6.0',
+    date: '2026-11-07',
+    icon: '🔱',
+    title: 'Spread Shot & Extra Chamber',
+    bullets: [
+      'New Spread Shot upgrade: every shot fires a 3-way fan — one straight, two angled.',
+      'New Extra Chamber upgrade: one more fire charge in the clip.',
+      'Spread Shot is also a mid-match pickup (temporary); beats Double Shot when both are active.',
+    ],
+  },
+  {
     version: '1.5.0',
     date: '2026-11-07',
     icon: '🗂️',
@@ -216,17 +227,27 @@ export const ENHANCEMENTS_ENABLED = true;
 export const GOLDEN_STAR_CHANCE = 0.15;
 export const GOLDEN_SCORE_MULTIPLIER = 2;
 export const PICKUP_DROP_CHANCE = 0.3;
-// Of the pickups that do drop, these two chances decide the kind — the
+// Of the pickups that do drop, these three chances decide the kind — the
 // remaining share is a flat score bonus.
-export const PICKUP_CURRENCY_CHANCE = 0.35;
-export const PICKUP_RAPID_CHANCE = 0.25;
+export const PICKUP_CURRENCY_CHANCE = 0.3;
+export const PICKUP_RAPID_CHANCE = 0.2;
+export const PICKUP_SPREAD_CHANCE = 0.2;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
 export const PICKUP_SCORE_MAX = 25;
 export const PICKUP_RAPID_DURATION_MS = 7000;
+export const PICKUP_SPREAD_DURATION_MS = 7000;
 export const PICKUP_CURRENCY_MIN = 5;
 export const PICKUP_CURRENCY_MAX = 15;
+
+// Spread shot: instead of one straight bullet, fires three — a center shot
+// plus two angled side shots. Bullets carry a unit direction (BulletState
+// dirX/dirY) multiplied by the shared bullet speed each tick, so an angled
+// bullet ramps up with difficulty/Hot Rounds exactly like a straight one.
+export const SPREAD_ANGLE_DEG = 16;
+// +1 fire charge in the clip (2 -> 3).
+export const EXTRA_CHARGE_BONUS = 1;
 
 // Stardust: the shop currency. Earned mid-match from currency pickups, and
 // as a reward for winning a vs-bot match — kept permanently either way,
@@ -264,5 +285,19 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     name: 'HOT ROUNDS',
     description: 'Shots fly faster, so they reach targets sooner.',
     price: 120,
+  },
+  {
+    id: 'spreadShot',
+    icon: '🔱',
+    name: 'SPREAD SHOT',
+    description: 'Every shot fires a 3-way fan instead of one, permanently. Same charge cost.',
+    price: 180,
+  },
+  {
+    id: 'extraCharge',
+    icon: '🔋',
+    name: 'EXTRA CHAMBER',
+    description: 'One more fire charge in the clip — 3 instead of 2.',
+    price: 130,
   },
 ];

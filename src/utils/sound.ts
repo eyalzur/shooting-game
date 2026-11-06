@@ -128,9 +128,13 @@ export function playGolden() {
   [784, 988, 1175].forEach((f, i) => tone(f, { duration: 0.12, type: 'triangle', gainPeak: 0.12, delay: i * 0.05 }));
 }
 
-export function playPickup(kind: 'score' | 'rapidFire' | 'currency') {
+export function playPickup(kind: 'score' | 'rapidFire' | 'spreadShot' | 'currency') {
   if (kind === 'rapidFire') {
     [660, 990, 1320].forEach((f, i) => tone(f, { duration: 0.08, type: 'square', gainPeak: 0.1, delay: i * 0.04 }));
+  } else if (kind === 'spreadShot') {
+    // Three tones fired together, fanning outward in pitch — echoes the
+    // 3-way bullet fan it grants.
+    [740, 988, 1320].forEach((f) => tone(f, { duration: 0.12, type: 'sawtooth', gainPeak: 0.07 }));
   } else if (kind === 'currency') {
     [1175, 1568].forEach((f, i) => tone(f, { duration: 0.1, type: 'sine', gainPeak: 0.1, delay: i * 0.05 }));
   } else {

@@ -26,6 +26,7 @@ import {
   DIFFICULTY_SPEED_STEP,
   DIFFICULTY_STEP_HITS,
   ENHANCEMENTS_ENABLED,
+  EXTRA_CHARGE_BONUS,
   FIRE_MAX_CHARGES,
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
@@ -46,6 +47,8 @@ import {
   PICKUP_SCORE_MAX,
   PICKUP_SCORE_MIN,
   PICKUP_SIZE,
+  PICKUP_SPREAD_CHANCE,
+  PICKUP_SPREAD_DURATION_MS,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
   PLAYER_SPEED,
@@ -54,6 +57,7 @@ import {
   RESPAWN_MAX_MS,
   RESPAWN_MIN_MS,
   SCORE_POPUP_MS,
+  SPREAD_ANGLE_DEG,
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
@@ -196,6 +200,11 @@ export default function GameScreen({
   const ownsDoubleShot = ownedUpgrades.includes('doubleShot');
   const ownsMoveSpeed = ownedUpgrades.includes('moveSpeed');
   const ownsBulletSpeed = ownedUpgrades.includes('bulletSpeed');
+  const ownsSpreadShot = ownedUpgrades.includes('spreadShot');
+  const ownsExtraCharge = ownedUpgrades.includes('extraCharge');
+  // Owned or not, this is the real cap for the lifetime of this match —
+  // upgrades only change between matches (Shop isn't reachable mid-game).
+  const maxCharges = FIRE_MAX_CHARGES + (ENHANCEMENTS_ENABLED && ownsExtraCharge ? EXTRA_CHARGE_BONUS : 0);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
@@ -214,9 +223,10 @@ export default function GameScreen({
   const bulletsRef = useRef<BulletState[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const pickupsRef = useRef<PickupState[]>([]);
-  // Rapid-fire pickup: a timestamp, not a bool, so it just naturally expires
-  // — no separate timer to clear or leak on unmount.
+  // Rapid-fire / spread-shot pickups: a timestamp each, not a bool, so they
+  // just naturally expire — no separate timer to clear or leak on unmount.
   const rapidFireUntilRef = useRef(0);
+  const spreadUntilRef = useRef(0);
   // Every Stardust source in a match — pickups now, whatever's added later
   // — should route through earnCurrency below so it's reflected both in the
   // persisted balance (via onEarnCurrency) and this match's own running
@@ -236,7 +246,7 @@ export default function GameScreen({
   const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
-  const chargesRef = useRef(FIRE_MAX_CHARGES);
+  const chargesRef = useRef(maxCharges);
 
   // VS mode: a bot opponent sharing the player's board and clock.
   const matchStartRef = useRef(Date.now());
@@ -253,6 +263,7 @@ export default function GameScreen({
   const [popups, setPopups] = useState(popupsRef.current);
   const [pickups, setPickups] = useState(pickupsRef.current);
   const [rapidFireMsLeft, setRapidFireMsLeft] = useState(0);
+  const [spreadMsLeft, setSpreadMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -261,7 +272,7 @@ export default function GameScreen({
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
   const levelUpIdRef = useRef(0);
-  const [powerUpEvent, setPowerUpEvent] = useState<{ id: number } | null>(null);
+  const [powerUpEvent, setPowerUpEvent] = useState<{ id: number; kind: 'rapidFire' | 'spreadShot' } | null>(null);
   const powerUpIdRef = useRef(0);
   const scorePulse = useRef(new Animated.Value(1)).current;
   const triggerScorePulse = () => {
@@ -366,8 +377,8 @@ export default function GameScreen({
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, ownsBulletSpeed);
       bulletsRef.current = bulletsRef.current
-        .map((b) => ({ ...b, y: b.y - bulletSpeed * dt }))
-        .filter((b) => b.y > -20);
+        .map((b) => ({ ...b, x: b.x + b.dirX * bulletSpeed * dt, y: b.y + b.dirY * bulletSpeed * dt }))
+        .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
 
       // Collisions: a live bullet (either owner's) entering a lane's hit
       // band near a live target. Both player and bot shoot the same shared
@@ -400,8 +411,8 @@ export default function GameScreen({
                 ];
                 triggerScorePulse();
                 // A broken target sometimes drops something to catch — a
-                // flat score bonus, a few seconds of rapid fire, or Stardust
-                // toward the shop.
+                // flat score bonus, a few seconds of rapid fire or spread
+                // shot, or Stardust toward the shop.
                 if (ENHANCEMENTS_ENABLED && Math.random() < PICKUP_DROP_CHANCE) {
                   const roll = Math.random();
                   const kind: PickupKind =
@@ -409,7 +420,9 @@ export default function GameScreen({
                       ? 'currency'
                       : roll < PICKUP_CURRENCY_CHANCE + PICKUP_RAPID_CHANCE
                         ? 'rapidFire'
-                        : 'score';
+                        : roll < PICKUP_CURRENCY_CHANCE + PICKUP_RAPID_CHANCE + PICKUP_SPREAD_CHANCE
+                          ? 'spreadShot'
+                          : 'score';
                   const value =
                     kind === 'score'
                       ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
@@ -459,10 +472,14 @@ export default function GameScreen({
                 ...popupsRef.current,
                 { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
               ];
-            } else {
+            } else if (p.kind === 'rapidFire') {
               rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
               powerUpIdRef.current += 1;
-              setPowerUpEvent({ id: powerUpIdRef.current });
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'rapidFire' });
+            } else {
+              spreadUntilRef.current = now + PICKUP_SPREAD_DURATION_MS;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'spreadShot' });
             }
             playPickup(p.kind);
             continue;
@@ -496,7 +513,7 @@ export default function GameScreen({
       // Recharge fire charges over time; speeds up with level.
       const rechargeMs = getEffectiveRechargeMs(difficultyLevelRef.current);
       chargesRef.current = Math.min(
-        FIRE_MAX_CHARGES,
+        maxCharges,
         chargesRef.current + dt / (rechargeMs / 1000)
       );
 
@@ -549,7 +566,7 @@ export default function GameScreen({
         ) {
           bulletsRef.current = [
             ...bulletsRef.current,
-            { id: ++idCounterRef.current, x: botXRef.current, y: playerY - PLAYER_SIZE / 2, owner: 'bot', color: bot.color },
+            { id: ++idCounterRef.current, x: botXRef.current, y: playerY - PLAYER_SIZE / 2, dirX: 0, dirY: -1, owner: 'bot', color: bot.color },
           ];
           playShoot();
           botNextShotAtRef.current = now + bot.fireIntervalMs * (0.75 + Math.random() * 0.5);
@@ -568,6 +585,7 @@ export default function GameScreen({
       setPopups(popupsRef.current);
       setPickups(pickupsRef.current);
       setRapidFireMsLeft(Math.max(0, rapidFireUntilRef.current - now));
+      setSpreadMsLeft(Math.max(0, spreadUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -585,16 +603,36 @@ export default function GameScreen({
     if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     chargesRef.current -= 1;
     setCharges(chargesRef.current);
-    // Rapid-fire pickup: one charge now fires a pair of bullets side by
-    // side instead of one, same cost — the "double shots" bonus.
-    const rapid = ENHANCEMENTS_ENABLED && (ownsDoubleShot || rapidFireUntilRef.current > Date.now());
-    const offsets = rapid ? [-10, 10] : [0];
+    // One fire pattern applies at a time — spread beats double beats a
+    // single straight shot — so owning or picking up more than one of
+    // these never stacks into a wall of bullets. Same charge cost either way.
+    const now = Date.now();
+    const hasSpread = ENHANCEMENTS_ENABLED && (ownsSpreadShot || spreadUntilRef.current > now);
+    const hasDouble = ENHANCEMENTS_ENABLED && (ownsDoubleShot || rapidFireUntilRef.current > now);
+    let shots: { dx: number; dirX: number; dirY: number }[];
+    if (hasSpread) {
+      const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
+      shots = [
+        { dx: 0, dirX: -Math.sin(rad), dirY: -Math.cos(rad) },
+        { dx: 0, dirX: 0, dirY: -1 },
+        { dx: 0, dirX: Math.sin(rad), dirY: -Math.cos(rad) },
+      ];
+    } else if (hasDouble) {
+      shots = [
+        { dx: -10, dirX: 0, dirY: -1 },
+        { dx: 10, dirX: 0, dirY: -1 },
+      ];
+    } else {
+      shots = [{ dx: 0, dirX: 0, dirY: -1 }];
+    }
     bulletsRef.current = [
       ...bulletsRef.current,
-      ...offsets.map((dx) => ({
+      ...shots.map((s) => ({
         id: ++idCounterRef.current,
-        x: playerXRef.current + dx,
+        x: playerXRef.current + s.dx,
         y: playerY - PLAYER_SIZE / 2,
+        dirX: s.dirX,
+        dirY: s.dirY,
         owner: 'player' as const,
         color: COLORS.blue,
       })),
@@ -733,7 +771,7 @@ export default function GameScreen({
             <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
           )}
           <View style={styles.chargeRow}>
-            {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
+            {Array.from({ length: maxCharges }, (_, i) => (
               <View
                 key={i}
                 style={[
@@ -743,7 +781,11 @@ export default function GameScreen({
               />
             ))}
           </View>
-          {ownsDoubleShot ? (
+          {ownsSpreadShot ? (
+            <Text style={styles.rapidBadge}>🔱×3</Text>
+          ) : spreadMsLeft > 0 ? (
+            <Text style={styles.rapidBadge}>🔱×3 {Math.ceil(spreadMsLeft / 1000)}s</Text>
+          ) : ownsDoubleShot ? (
             <Text style={styles.rapidBadge}>⚡×2</Text>
           ) : (
             rapidFireMsLeft > 0 && (

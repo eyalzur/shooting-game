@@ -2,18 +2,25 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../constants';
 
+export type PowerUpKind = 'rapidFire' | 'spreadShot';
+
 interface Props {
-  event: { id: number } | null;
+  event: { id: number; kind: PowerUpKind } | null;
 }
 
 const VISIBLE_MS = 1000;
 
+const CONTENT: Record<PowerUpKind, { icon: string; label: string; sub: string; color: string }> = {
+  rapidFire: { icon: '⚡', label: 'RAPID FIRE', sub: 'DOUBLE SHOTS', color: COLORS.cyan },
+  spreadShot: { icon: '🔱', label: 'SPREAD SHOT', sub: '3-WAY FAN', color: COLORS.pink },
+};
+
 // Big, impossible-to-miss, one-shot — the same finite burst-and-fade pattern
-// as LevelUpBanner, triggered the instant a rapid-fire pickup is caught, so
-// the change in how shots work has a moment on screen, not just a quiet
-// top-bar badge.
+// as LevelUpBanner, triggered the instant a rapid-fire or spread-shot
+// pickup is caught, so the change in how shots work has a moment on
+// screen, not just a quiet top-bar badge.
 export default function PowerUpBanner({ event }: Props) {
-  const [shown, setShown] = useState<{ id: number } | null>(null);
+  const [shown, setShown] = useState<{ id: number; kind: PowerUpKind } | null>(null);
   const burst = useRef(new Animated.Value(0)).current;
   const boltScale = useRef(new Animated.Value(0)).current;
   const boltOpacity = useRef(new Animated.Value(0)).current;
@@ -63,6 +70,7 @@ export default function PowerUpBanner({ event }: Props) {
   }, [event, burst, boltScale, boltOpacity]);
 
   if (!shown) return null;
+  const content = CONTENT[shown.kind];
 
   const burstScale = burst.interpolate({ inputRange: [0, 1], outputRange: [0.2, 3.2] });
   const burstOpacity = burst.interpolate({ inputRange: [0, 1], outputRange: [0.75, 0] });
@@ -72,7 +80,10 @@ export default function PowerUpBanner({ event }: Props) {
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       <View style={styles.center}>
         <Animated.View
-          style={[styles.burst, { opacity: burstOpacity, transform: [{ scale: burstScale }] }]}
+          style={[
+            styles.burst,
+            { backgroundColor: content.color, shadowColor: content.color, opacity: burstOpacity, transform: [{ scale: burstScale }] },
+          ]}
         />
         <Animated.View
           style={{
@@ -81,9 +92,9 @@ export default function PowerUpBanner({ event }: Props) {
             alignItems: 'center',
           }}
         >
-          <Text style={styles.bolt}>⚡</Text>
-          <Text style={styles.label}>RAPID FIRE</Text>
-          <Text style={styles.sub}>DOUBLE SHOTS</Text>
+          <Text style={[styles.bolt, { textShadowColor: content.color }]}>{content.icon}</Text>
+          <Text style={[styles.label, { textShadowColor: content.color }]}>{content.label}</Text>
+          <Text style={styles.sub}>{content.sub}</Text>
         </Animated.View>
       </View>
     </View>

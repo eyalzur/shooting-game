@@ -9,12 +9,14 @@ interface Props {
 const ICONS: Record<PickupState['kind'], string> = {
   score: '⭐',
   rapidFire: '⚡',
+  spreadShot: '🔱',
   currency: CURRENCY_ICON,
 };
 
 const TINTS: Record<PickupState['kind'], string> = {
   score: COLORS.gold,
   rapidFire: COLORS.cyan,
+  spreadShot: COLORS.pink,
   currency: COLORS.purple,
 };
 

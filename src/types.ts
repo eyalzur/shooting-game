@@ -34,7 +34,7 @@ export interface TargetState {
   isGolden: boolean;
 }
 
-export type PickupKind = 'score' | 'rapidFire' | 'currency';
+export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'currency';
 
 /** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
 export interface PickupState {
@@ -42,7 +42,7 @@ export interface PickupState {
   x: number;
   y: number;
   kind: PickupKind;
-  /** Bonus score for 'score', Stardust amount for 'currency'; unused for 'rapidFire'. */
+  /** Bonus score for 'score', Stardust amount for 'currency'; unused otherwise. */
   value: number;
 }
 
@@ -50,6 +50,11 @@ export interface BulletState {
   id: number;
   x: number;
   y: number;
+  /** Unit direction the bullet travels in; multiplied by the current bullet
+   * speed each tick. {0,-1} is straight up — angled bullets (spread shot)
+   * use a tilted unit vector instead. */
+  dirX: number;
+  dirY: number;
   /** Whose shot this is — decides who gets credited on a hit. */
   owner: 'player' | 'bot';
   /** Tint for a bot's shot, so it reads as visibly different from the player's. */
@@ -68,7 +73,7 @@ export interface ScorePopupState {
 export type GameMode = 'solo' | 'vs';
 
 /** A permanent shop upgrade, identified by id — the owned set is what's persisted. */
-export type UpgradeId = 'doubleShot' | 'moveSpeed' | 'bulletSpeed';
+export type UpgradeId = 'doubleShot' | 'moveSpeed' | 'bulletSpeed' | 'spreadShot' | 'extraCharge';
 
 export interface ShopItemDef {
   id: UpgradeId;
