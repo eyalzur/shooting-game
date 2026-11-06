@@ -17,6 +17,8 @@ import {
   BULLET_SPEED_STEP,
   BULLET_SPEED_UPGRADE_MULT,
   COLORS,
+  CURRENCY_ICON,
+  CURRENCY_NAME,
   DIFFICULTY_MAX_LEVEL,
   DIFFICULTY_MIN_SIZE_MULTIPLIER,
   DIFFICULTY_RANGE_STEP,
@@ -215,6 +217,17 @@ export default function GameScreen({
   // Rapid-fire pickup: a timestamp, not a bool, so it just naturally expires
   // — no separate timer to clear or leak on unmount.
   const rapidFireUntilRef = useRef(0);
+  // Every Stardust source in a match — pickups now, whatever's added later
+  // — should route through earnCurrency below so it's reflected both in the
+  // persisted balance (via onEarnCurrency) and this match's own running
+  // total, shown on the result screen.
+  const matchCurrencyRef = useRef(0);
+  const [matchCurrencyEarned, setMatchCurrencyEarned] = useState(0);
+  const earnCurrency = (amount: number) => {
+    matchCurrencyRef.current += amount;
+    setMatchCurrencyEarned(matchCurrencyRef.current);
+    onEarnCurrency(amount);
+  };
   const scoreRef = useRef(0);
   const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
@@ -271,7 +284,7 @@ export default function GameScreen({
       playTimeUp();
     } else if (outcome === 'win') {
       playWin();
-      if (ENHANCEMENTS_ENABLED) onEarnCurrency(WIN_CURRENCY_REWARD);
+      if (ENHANCEMENTS_ENABLED) earnCurrency(WIN_CURRENCY_REWARD);
     } else if (outcome === 'lose') {
       playLose();
     } else {
@@ -441,7 +454,7 @@ export default function GameScreen({
               ];
               triggerScorePulse();
             } else if (p.kind === 'currency') {
-              onEarnCurrency(p.value);
+              earnCurrency(p.value);
               popupsRef.current = [
                 ...popupsRef.current,
                 { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
@@ -774,6 +787,11 @@ export default function GameScreen({
                   <Text style={styles.resultValue}>{scoreRef.current}</Text>
                 </View>
               </View>
+              {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
+                <Text style={styles.resultCurrency}>
+                  {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
+                </Text>
+              )}
               <View style={styles.resultButtons}>
                 <PressableScale
                   onPress={() => {
@@ -866,6 +884,11 @@ export default function GameScreen({
                   </Text>
                 </View>
               </View>
+              {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
+                <Text style={styles.resultCurrency}>
+                  {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
+                </Text>
+              )}
               <View style={styles.resultButtons}>
                 <PressableScale
                   onPress={() => {
@@ -1076,6 +1099,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textShadowColor: COLORS.blue,
     textShadowRadius: 14,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  resultCurrency: {
+    color: COLORS.purple,
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: -16,
+    marginBottom: 20,
+    textShadowColor: COLORS.purple,
+    textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
   resultButtons: {
