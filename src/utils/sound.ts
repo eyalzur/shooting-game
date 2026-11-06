@@ -128,18 +128,32 @@ export function playGolden() {
   [784, 988, 1175].forEach((f, i) => tone(f, { duration: 0.12, type: 'triangle', gainPeak: 0.12, delay: i * 0.05 }));
 }
 
-export function playPickup(kind: 'score' | 'rapidFire' | 'spreadShot' | 'currency') {
+export function playPickup(kind: 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency') {
   if (kind === 'rapidFire') {
     [660, 990, 1320].forEach((f, i) => tone(f, { duration: 0.08, type: 'square', gainPeak: 0.1, delay: i * 0.04 }));
   } else if (kind === 'spreadShot') {
     // Three tones fired together, fanning outward in pitch — echoes the
     // 3-way bullet fan it grants.
     [740, 988, 1320].forEach((f) => tone(f, { duration: 0.12, type: 'sawtooth', gainPeak: 0.07 }));
+  } else if (kind === 'bomb') {
+    playBomb();
+  } else if (kind === 'magnet') {
+    // A rising sweep — things pulling inward toward the cannon.
+    tone(220, { duration: 0.3, type: 'sine', gainPeak: 0.1, freqEnd: 660 });
   } else if (kind === 'currency') {
     [1175, 1568].forEach((f, i) => tone(f, { duration: 0.1, type: 'sine', gainPeak: 0.1, delay: i * 0.05 }));
   } else {
     tone(1046, { duration: 0.14, type: 'sine', gainPeak: 0.12, freqEnd: 1568 });
   }
+}
+
+// A big simultaneous boom for the bomb pickup clearing every live target —
+// deeper and louder than a single playHit, since several targets go down
+// at once.
+export function playBomb() {
+  noiseBurst({ duration: 0.4, filterStart: 3800, filterEnd: 150, gainPeak: 0.3 });
+  tone(90, { duration: 0.35, type: 'sine', gainPeak: 0.18, freqEnd: 40 });
+  tone(180, { duration: 0.25, type: 'triangle', gainPeak: 0.12, freqEnd: 70, delay: 0.03 });
 }
 
 // A shop purchase — a little richer than a UI tap, confirms the spend went

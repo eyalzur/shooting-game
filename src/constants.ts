@@ -9,6 +9,17 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.7.0',
+    date: '2026-11-07',
+    icon: '💣',
+    title: 'Two new pickups: Nova Bomb & Magnet',
+    bullets: [
+      'Nova Bomb: clears every live target on screen at once, full score for each.',
+      "Magnet: pickups drift toward your cannon for a few seconds — can't miss the catch.",
+      'Pickups drop a bit more often overall.',
+    ],
+  },
+  {
     version: '1.6.0',
     date: '2026-11-07',
     icon: '🔱',
@@ -226,12 +237,14 @@ export const BOT_JITTER_WALK_SPEED = 70;
 export const ENHANCEMENTS_ENABLED = true;
 export const GOLDEN_STAR_CHANCE = 0.15;
 export const GOLDEN_SCORE_MULTIPLIER = 2;
-export const PICKUP_DROP_CHANCE = 0.3;
-// Of the pickups that do drop, these three chances decide the kind — the
+export const PICKUP_DROP_CHANCE = 0.35;
+// Of the pickups that do drop, these five chances decide the kind — the
 // remaining share is a flat score bonus.
-export const PICKUP_CURRENCY_CHANCE = 0.3;
-export const PICKUP_RAPID_CHANCE = 0.2;
-export const PICKUP_SPREAD_CHANCE = 0.2;
+export const PICKUP_CURRENCY_CHANCE = 0.25;
+export const PICKUP_RAPID_CHANCE = 0.15;
+export const PICKUP_SPREAD_CHANCE = 0.15;
+export const PICKUP_BOMB_CHANCE = 0.12;
+export const PICKUP_MAGNET_CHANCE = 0.13;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
@@ -240,6 +253,11 @@ export const PICKUP_RAPID_DURATION_MS = 7000;
 export const PICKUP_SPREAD_DURATION_MS = 7000;
 export const PICKUP_CURRENCY_MIN = 5;
 export const PICKUP_CURRENCY_MAX = 15;
+// Magnet: while active, every pickup on screen drifts horizontally toward
+// the cannon's x as it falls, instead of dropping straight down — makes
+// catching trivial for a few seconds.
+export const PICKUP_MAGNET_DURATION_MS = 6000;
+export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
 
 // Spread shot: instead of one straight bullet, fires three — a center shot
 // plus two angled side shots. Bullets carry a unit direction (BulletState

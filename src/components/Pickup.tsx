@@ -10,6 +10,8 @@ const ICONS: Record<PickupState['kind'], string> = {
   score: '⭐',
   rapidFire: '⚡',
   spreadShot: '🔱',
+  bomb: '💣',
+  magnet: '🧲',
   currency: CURRENCY_ICON,
 };
 
@@ -17,6 +19,8 @@ const TINTS: Record<PickupState['kind'], string> = {
   score: COLORS.gold,
   rapidFire: COLORS.cyan,
   spreadShot: COLORS.pink,
+  bomb: COLORS.red,
+  magnet: COLORS.blue,
   currency: COLORS.purple,
 };
 

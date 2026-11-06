@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Pickup from '../components/Pickup';
-import PowerUpBanner from '../components/PowerUpBanner';
+import PowerUpBanner, { PowerUpKind } from '../components/PowerUpBanner';
 import PressableScale from '../components/PressableScale';
 import Player from '../components/Player';
 import ScorePopup from '../components/ScorePopup';
@@ -37,11 +37,15 @@ import {
   LANES,
   MAX_BULLETS,
   MOVE_SPEED_UPGRADE_MULT,
+  PICKUP_BOMB_CHANCE,
   PICKUP_CURRENCY_CHANCE,
   PICKUP_CURRENCY_MAX,
   PICKUP_CURRENCY_MIN,
   PICKUP_DROP_CHANCE,
   PICKUP_FALL_SPEED,
+  PICKUP_MAGNET_CHANCE,
+  PICKUP_MAGNET_DURATION_MS,
+  PICKUP_MAGNET_PULL_SPEED,
   PICKUP_RAPID_CHANCE,
   PICKUP_RAPID_DURATION_MS,
   PICKUP_SCORE_MAX,
@@ -111,6 +115,27 @@ function randomSpeedForLane(lane: LaneConfig) {
 
 function randomRespawnDelay() {
   return RESPAWN_MIN_MS + Math.random() * (RESPAWN_MAX_MS - RESPAWN_MIN_MS);
+}
+
+// Weighted pick of a pickup kind — ordered list of [chance, kind], tried in
+// order against one roll; whatever's left over (doesn't need to sum to 1)
+// falls through to a flat score bonus. Adding a new pickup kind is just a
+// new row here.
+const PICKUP_KIND_WEIGHTS: [number, PickupKind][] = [
+  [PICKUP_CURRENCY_CHANCE, 'currency'],
+  [PICKUP_RAPID_CHANCE, 'rapidFire'],
+  [PICKUP_SPREAD_CHANCE, 'spreadShot'],
+  [PICKUP_BOMB_CHANCE, 'bomb'],
+  [PICKUP_MAGNET_CHANCE, 'magnet'],
+];
+function rollPickupKind(): PickupKind {
+  const roll = Math.random();
+  let cumulative = 0;
+  for (const [chance, kind] of PICKUP_KIND_WEIGHTS) {
+    cumulative += chance;
+    if (roll < cumulative) return kind;
+  }
+  return 'score';
 }
 
 // Shared bounce/respawn/spin physics, used for both the player's targets
@@ -227,6 +252,7 @@ export default function GameScreen({
   // just naturally expire — no separate timer to clear or leak on unmount.
   const rapidFireUntilRef = useRef(0);
   const spreadUntilRef = useRef(0);
+  const magnetUntilRef = useRef(0);
   // Every Stardust source in a match — pickups now, whatever's added later
   // — should route through earnCurrency below so it's reflected both in the
   // persisted balance (via onEarnCurrency) and this match's own running
@@ -264,6 +290,7 @@ export default function GameScreen({
   const [pickups, setPickups] = useState(pickupsRef.current);
   const [rapidFireMsLeft, setRapidFireMsLeft] = useState(0);
   const [spreadMsLeft, setSpreadMsLeft] = useState(0);
+  const [magnetMsLeft, setMagnetMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -272,7 +299,7 @@ export default function GameScreen({
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
   const levelUpIdRef = useRef(0);
-  const [powerUpEvent, setPowerUpEvent] = useState<{ id: number; kind: 'rapidFire' | 'spreadShot' } | null>(null);
+  const [powerUpEvent, setPowerUpEvent] = useState<{ id: number; kind: PowerUpKind } | null>(null);
   const powerUpIdRef = useRef(0);
   const scorePulse = useRef(new Animated.Value(1)).current;
   const triggerScorePulse = () => {
@@ -411,18 +438,10 @@ export default function GameScreen({
                 ];
                 triggerScorePulse();
                 // A broken target sometimes drops something to catch — a
-                // flat score bonus, a few seconds of rapid fire or spread
-                // shot, or Stardust toward the shop.
+                // flat score bonus, a temporary fire-pattern or pull-in
+                // power-up, a screen-clearing bomb, or Stardust.
                 if (ENHANCEMENTS_ENABLED && Math.random() < PICKUP_DROP_CHANCE) {
-                  const roll = Math.random();
-                  const kind: PickupKind =
-                    roll < PICKUP_CURRENCY_CHANCE
-                      ? 'currency'
-                      : roll < PICKUP_CURRENCY_CHANCE + PICKUP_RAPID_CHANCE
-                        ? 'rapidFire'
-                        : roll < PICKUP_CURRENCY_CHANCE + PICKUP_RAPID_CHANCE + PICKUP_SPREAD_CHANCE
-                          ? 'spreadShot'
-                          : 'score';
+                  const kind = rollPickupKind();
                   const value =
                     kind === 'score'
                       ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
@@ -447,17 +466,25 @@ export default function GameScreen({
       }
       bulletsRef.current = remainingBullets;
 
-      // Pickups: fall straight down from where they dropped. Brush the
+      // Pickups: fall straight down from where they dropped, or drift
+      // toward the cannon's x too while Magnet is active. Brush the
       // player's cannon against one to collect it; miss the catch and it
       // falls off the bottom and is gone.
       if (ENHANCEMENTS_ENABLED) {
+        const magnetActive = magnetUntilRef.current > now;
         const nextPickups: PickupState[] = [];
         for (const p of pickupsRef.current) {
           const nextY = p.y + PICKUP_FALL_SPEED * dt;
+          let nextX = p.x;
+          if (magnetActive) {
+            const dx = playerXRef.current - p.x;
+            const step = Math.min(Math.abs(dx), PICKUP_MAGNET_PULL_SPEED * dt);
+            nextX = p.x + Math.sign(dx) * step;
+          }
           const caught =
             !matchOverRef.current &&
             Math.abs(nextY - playerY) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2 &&
-            Math.abs(p.x - playerXRef.current) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2;
+            Math.abs(nextX - playerXRef.current) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2;
           if (caught) {
             if (p.kind === 'score') {
               scoreRef.current += p.value;
@@ -476,16 +503,51 @@ export default function GameScreen({
               rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'rapidFire' });
-            } else {
+            } else if (p.kind === 'spreadShot') {
               spreadUntilRef.current = now + PICKUP_SPREAD_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'spreadShot' });
+            } else if (p.kind === 'magnet') {
+              magnetUntilRef.current = now + PICKUP_MAGNET_DURATION_MS;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'magnet' });
+            } else {
+              // Bomb: every live target goes down at once, same scoring and
+              // explosion as a direct hit — just no chained pickup drops,
+              // so one bomb can't cascade into another.
+              for (const t of targetsRef.current) {
+                if (t.hitAt !== null) continue;
+                const lane = lanes[t.laneIndex];
+                t.hitAt = now;
+                t.respawnDelay = randomRespawnDelay();
+                t.hitColor = COLORS.blue;
+                t.explosionVariant = Math.floor(Math.random() * 3);
+                if (!matchOverRef.current) {
+                  const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
+                  scoreRef.current += gain;
+                  hitsRef.current += 1;
+                  popupsRef.current = [
+                    ...popupsRef.current,
+                    {
+                      id: ++idCounterRef.current,
+                      x: t.x,
+                      y: lane.y * playAreaHeight,
+                      value: gain,
+                      color: t.isGolden ? COLORS.gold : COLORS.blue,
+                      createdAt: now,
+                    },
+                  ];
+                }
+              }
+              triggerScorePulse();
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'bomb' });
             }
             playPickup(p.kind);
             continue;
           }
           if (nextY > playAreaHeight + PICKUP_SIZE) continue;
-          nextPickups.push({ ...p, y: nextY });
+          nextPickups.push({ ...p, x: nextX, y: nextY });
         }
         pickupsRef.current = nextPickups;
       }
@@ -586,6 +648,7 @@ export default function GameScreen({
       setPickups(pickupsRef.current);
       setRapidFireMsLeft(Math.max(0, rapidFireUntilRef.current - now));
       setSpreadMsLeft(Math.max(0, spreadUntilRef.current - now));
+      setMagnetMsLeft(Math.max(0, magnetUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -791,6 +854,9 @@ export default function GameScreen({
             rapidFireMsLeft > 0 && (
               <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
             )
+          )}
+          {magnetMsLeft > 0 && (
+            <Text style={styles.magnetBadge}>🧲 {Math.ceil(magnetMsLeft / 1000)}s</Text>
           )}
         </View>
       </View>
@@ -1040,6 +1106,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginLeft: 12,
     textShadowColor: COLORS.cyan,
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  magnetBadge: {
+    color: COLORS.blue,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    marginLeft: 8,
+    textShadowColor: COLORS.blue,
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
