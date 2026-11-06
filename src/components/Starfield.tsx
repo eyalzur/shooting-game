@@ -1,5 +1,5 @@
-import { useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { LEVEL_THEMES, LEVELS_PER_THEME } from '../constants';
 
 interface Props {
@@ -15,12 +15,15 @@ interface Star {
   opacity: number;
 }
 
-interface Nebula {
+interface NebulaPos {
   x: number;
   y: number;
   size: number;
-  color: string;
 }
+
+type Theme = (typeof LEVEL_THEMES)[number];
+
+const THEME_FADE_MS = 1000;
 
 function makeStars(width: number, height: number, count: number): Star[] {
   return Array.from({ length: count }, () => ({
@@ -32,37 +35,107 @@ function makeStars(width: number, height: number, count: number): Star[] {
 }
 
 export default function Starfield({ width, height, level = 0 }: Props) {
-  const theme = LEVEL_THEMES[Math.floor(level / LEVELS_PER_THEME) % LEVEL_THEMES.length];
-  const stars = useMemo(() => makeStars(width, height, 70), [width, height]);
-  const nebulae = useMemo<Nebula[]>(
-    () => [
-      { x: width * 0.15, y: height * 0.15, size: Math.max(width, 220), color: theme.nebula[0] },
-      { x: width * 0.85, y: height * 0.55, size: Math.max(width, 260), color: theme.nebula[1] },
-      { x: width * 0.3, y: height * 0.85, size: Math.max(width, 200), color: theme.nebula[2] },
-    ],
-    [width, height, theme]
-  );
+  const themeIndex = Math.floor(level / LEVELS_PER_THEME) % LEVEL_THEMES.length;
+  const theme = LEVEL_THEMES[themeIndex];
   const moonSize = 64 + Math.min(level, 10) * 4;
 
-  return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {nebulae.map((n, i) => (
+  const stars = useMemo(() => makeStars(width, height, 70), [width, height]);
+  const nebulaPositions = useMemo<NebulaPos[]>(
+    () => [
+      { x: width * 0.15, y: height * 0.15, size: Math.max(width, 220) },
+      { x: width * 0.85, y: height * 0.55, size: Math.max(width, 260) },
+      { x: width * 0.3, y: height * 0.85, size: Math.max(width, 200) },
+    ],
+    [width, height]
+  );
+
+  // Crossfade between themes instead of snapping, so leveling into a new
+  // palette feels like a scene change rather than a flicker.
+  const themeIndexRef = useRef(themeIndex);
+  const fade = useRef(new Animated.Value(1)).current;
+  const [prevTheme, setPrevTheme] = useState<Theme | null>(null);
+
+  useEffect(() => {
+    if (themeIndexRef.current === themeIndex) return;
+    setPrevTheme(LEVEL_THEMES[themeIndexRef.current]);
+    themeIndexRef.current = themeIndex;
+    fade.setValue(0);
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: THEME_FADE_MS,
+      easing: Easing.inOut(Easing.quad),
+      useNativeDriver: true,
+    }).start(() => setPrevTheme(null));
+  }, [themeIndex, fade]);
+
+  const fadeIn = fade;
+  const fadeOut = fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+
+  const renderLayer = (t: Theme, opacity: Animated.AnimatedInterpolation<number> | number, key: string) => (
+    <Animated.View key={key} style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none">
+      {nebulaPositions.map((p, i) => (
         <View
           key={i}
           style={[
             styles.nebula,
             {
-              left: n.x - n.size / 2,
-              top: n.y - n.size / 2,
-              width: n.size,
-              height: n.size,
-              borderRadius: n.size / 2,
-              backgroundColor: n.color,
-              shadowColor: n.color,
+              left: p.x - p.size / 2,
+              top: p.y - p.size / 2,
+              width: p.size,
+              height: p.size,
+              borderRadius: p.size / 2,
+              backgroundColor: t.nebula[i],
+              shadowColor: t.nebula[i],
             },
           ]}
         />
       ))}
+      <View
+        style={[
+          styles.moonGlow,
+          {
+            width: moonSize * 2,
+            height: moonSize * 2,
+            borderRadius: moonSize,
+            right: -moonSize * 0.6,
+            top: 18,
+            backgroundColor: t.moon,
+            shadowColor: t.moon,
+          },
+        ]}
+      />
+      <View
+        style={[
+          styles.moon,
+          {
+            width: moonSize,
+            height: moonSize,
+            borderRadius: moonSize / 2,
+            right: moonSize * 0.4,
+            top: 18 + moonSize * 0.3,
+            backgroundColor: t.moon,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.moonShadow,
+            {
+              width: moonSize * 0.75,
+              height: moonSize * 0.95,
+              borderRadius: moonSize / 2,
+              right: -moonSize * 0.22,
+            },
+          ]}
+        />
+      </View>
+    </Animated.View>
+  );
+
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {prevTheme && renderLayer(prevTheme, fadeOut, 'prev')}
+      {renderLayer(theme, prevTheme ? fadeIn : 1, 'current')}
       {stars.map((s, i) => (
         <View
           key={i}
@@ -79,45 +152,6 @@ export default function Starfield({ width, height, level = 0 }: Props) {
           ]}
         />
       ))}
-      <View
-        style={[
-          styles.moonGlow,
-          {
-            width: moonSize * 2,
-            height: moonSize * 2,
-            borderRadius: moonSize,
-            right: -moonSize * 0.6,
-            top: 18,
-            backgroundColor: theme.moon,
-            shadowColor: theme.moon,
-          },
-        ]}
-      />
-      <View
-        style={[
-          styles.moon,
-          {
-            width: moonSize,
-            height: moonSize,
-            borderRadius: moonSize / 2,
-            right: moonSize * 0.4,
-            top: 18 + moonSize * 0.3,
-            backgroundColor: theme.moon,
-          },
-        ]}
-      >
-        <View
-          style={[
-            styles.moonShadow,
-            {
-              width: moonSize * 0.75,
-              height: moonSize * 0.95,
-              borderRadius: moonSize / 2,
-              right: -moonSize * 0.22,
-            },
-          ]}
-        />
-      </View>
     </View>
   );
 }

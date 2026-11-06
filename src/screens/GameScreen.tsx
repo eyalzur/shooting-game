@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Player from '../components/Player';
@@ -25,7 +25,9 @@ import {
   MAX_BULLETS,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
-  RESPAWN_DELAY_MS,
+  RESPAWN_MAX_MS,
+  RESPAWN_MIN_MS,
+  STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
 } from '../constants';
@@ -74,6 +76,10 @@ function randomSpeedForLane(lane: LaneConfig) {
   return lane.minSpeed + Math.random() * (lane.maxSpeed - lane.minSpeed);
 }
 
+function randomRespawnDelay() {
+  return RESPAWN_MIN_MS + Math.random() * (RESPAWN_MAX_MS - RESPAWN_MIN_MS);
+}
+
 function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
   return lanes.map((lane, laneIndex) => ({
     id: laneIndex,
@@ -81,11 +87,17 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
     x: randomXForLane(lane.size, width),
     dir: Math.random() < 0.5 ? 1 : -1,
     speed: randomSpeedForLane(lane),
+    spin: Math.random(),
     hitAt: null,
+    respawnDelay: 0,
   }));
 }
 
-export default function GameScreen() {
+interface Props {
+  onExit: (finalScore: number) => void;
+}
+
+export default function GameScreen({ onExit }: Props) {
   const { width, height } = useWindowDimensions();
   const playAreaHeight = height - TOP_BAR_HEIGHT;
   const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
@@ -140,7 +152,7 @@ export default function GameScreen() {
       const lanes = effectiveLanesRef.current;
       targetsRef.current = targetsRef.current.map((t) => {
         if (t.hitAt !== null) {
-          if (now - t.hitAt > RESPAWN_DELAY_MS) {
+          if (now - t.hitAt > t.respawnDelay) {
             const lane = lanes[t.laneIndex];
             return {
               ...t,
@@ -167,7 +179,10 @@ export default function GameScreen() {
           nextDir = -1;
           nextSpeed = randomSpeedForLane(lane);
         }
-        return { ...t, x: nextX, dir: nextDir, speed: nextSpeed };
+        // Spin is driven here, by the same clock as everything else, so it
+        // can never stall independently of the rest of the game.
+        const nextSpin = (t.spin + dt / (STAR_SPIN_MS / 1000)) % 1;
+        return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin };
       });
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
@@ -189,6 +204,7 @@ export default function GameScreen() {
             Math.abs(b.x - t.x) <= lane.size / 2
           ) {
             t.hitAt = now;
+            t.respawnDelay = randomRespawnDelay();
             scoreRef.current += lane.points;
             hitsRef.current += 1;
             hitSomething = true;
@@ -309,19 +325,24 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.topBar}>
-        <Text style={styles.scoreLabel}>SCORE</Text>
-        <Text style={styles.scoreText}>{score}</Text>
-        <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
-        <View style={styles.chargeRow}>
-          {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.chargePip,
-                { opacity: Math.max(0.18, Math.min(1, charges - i)) },
-              ]}
-            />
-          ))}
+        <Pressable onPress={() => onExit(scoreRef.current)} style={styles.homeButton}>
+          <Text style={styles.homeButtonText}>⟵ HOME</Text>
+        </Pressable>
+        <View style={styles.statsRow}>
+          <Text style={styles.scoreLabel}>SCORE</Text>
+          <Text style={styles.scoreText}>{score}</Text>
+          <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+          <View style={styles.chargeRow}>
+            {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.chargePip,
+                  { opacity: Math.max(0.18, Math.min(1, charges - i)) },
+                ]}
+              />
+            ))}
+          </View>
         </View>
       </View>
 
@@ -351,12 +372,38 @@ const styles = StyleSheet.create({
   topBar: {
     height: TOP_BAR_HEIGHT,
     flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'center',
-    gap: 8,
+    alignItems: 'center',
+    paddingHorizontal: 14,
     backgroundColor: COLORS.panel,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
+    borderBottomLeftRadius: 18,
+    borderBottomRightRadius: 18,
+    shadowColor: COLORS.purple,
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  homeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(138,92,255,0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  homeButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1,
+  },
+  statsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'center',
+    gap: 8,
   },
   scoreLabel: {
     color: COLORS.textSecondary,

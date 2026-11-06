@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { STAR_SPIN_MS } from '../constants';
+import { EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 
 interface Props {
@@ -9,26 +9,41 @@ interface Props {
   laneY: number;
 }
 
+const SPARK_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
+
 export default function Target({ target, lane, laneY }: Props) {
   const isHit = target.hitAt !== null;
   const glowSize = lane.size * 1.9;
-  const spin = useRef(new Animated.Value(0)).current;
 
+  // One-shot explosion burst, triggered on the instant a hit lands. It's a
+  // finite animation (not a loop), so it can't drift or stall the way an
+  // always-running per-target loop could.
+  const explode = useRef(new Animated.Value(0)).current;
+  const prevHitAt = useRef<number | null>(null);
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spin, {
+    if (target.hitAt !== null && target.hitAt !== prevHitAt.current) {
+      explode.setValue(0);
+      Animated.timing(explode, {
         toValue: 1,
-        duration: STAR_SPIN_MS,
-        easing: Easing.linear,
+        duration: EXPLOSION_MS,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spin]);
+      }).start();
+    }
+    prevHitAt.current = target.hitAt;
+  }, [target.hitAt, explode]);
 
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const rotateBack = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
+  // Rotation is computed straight from the target's own spin phase, which
+  // the main game loop advances every tick — no independent animation clock
+  // to fall out of sync or silently stop.
+  const rotate = `${target.spin * 360}deg`;
+  const rotateBack = `${-target.spin * 360}deg`;
+
+  const sparkOpacity = explode.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] });
+  const coreOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const coreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
+  const ringScale = explode.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] });
+  const ringOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] });
 
   return (
     <View
@@ -40,41 +55,88 @@ export default function Target({ target, lane, laneY }: Props) {
         height: glowSize,
         alignItems: 'center',
         justifyContent: 'center',
-        opacity: isHit ? 0.2 : 1,
-        transform: [{ scale: isHit ? 1.5 : 1 }],
       }}
     >
-      <View
-        style={[
-          styles.glow,
-          {
-            width: glowSize,
-            height: glowSize,
-            borderRadius: glowSize / 2,
-            backgroundColor: lane.color,
-            shadowColor: lane.color,
-          },
-        ]}
-      />
+      {isHit && (
+        <>
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                width: glowSize,
+                height: glowSize,
+                borderRadius: glowSize / 2,
+                borderColor: lane.color,
+                opacity: ringOpacity,
+                transform: [{ scale: ringScale }],
+              },
+            ]}
+          />
+          {SPARK_ANGLES_DEG.map((angle) => {
+            const rad = (angle * Math.PI) / 180;
+            const dist = glowSize * 0.7;
+            const translateX = explode.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, Math.cos(rad) * dist],
+            });
+            const translateY = explode.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, Math.sin(rad) * dist],
+            });
+            return (
+              <Animated.View
+                key={angle}
+                style={[
+                  styles.spark,
+                  {
+                    backgroundColor: lane.color,
+                    shadowColor: lane.color,
+                    opacity: sparkOpacity,
+                    transform: [{ translateX }, { translateY }],
+                  },
+                ]}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {!isHit && (
+        <>
+          <View
+            style={[
+              styles.glow,
+              {
+                width: glowSize,
+                height: glowSize,
+                borderRadius: glowSize / 2,
+                backgroundColor: lane.color,
+                shadowColor: lane.color,
+              },
+            ]}
+          />
+          <View
+            style={[
+              styles.spikeSet,
+              { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ rotate }] },
+            ]}
+          >
+            <View style={[styles.spike, styles.spikeV, { backgroundColor: lane.color }]} />
+            <View style={[styles.spike, styles.spikeH, { backgroundColor: lane.color }]} />
+          </View>
+          <View
+            style={[
+              styles.spikeSet,
+              { width: lane.size * 1.3, height: lane.size * 1.3, transform: [{ rotate: rotateBack }] },
+            ]}
+          >
+            <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: lane.color }]} />
+            <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: lane.color }]} />
+          </View>
+        </>
+      )}
+
       <Animated.View
-        style={[
-          styles.spikeSet,
-          { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ rotate }] },
-        ]}
-      >
-        <View style={[styles.spike, styles.spikeV, { backgroundColor: lane.color }]} />
-        <View style={[styles.spike, styles.spikeH, { backgroundColor: lane.color }]} />
-      </Animated.View>
-      <Animated.View
-        style={[
-          styles.spikeSet,
-          { width: lane.size * 1.3, height: lane.size * 1.3, transform: [{ rotate: rotateBack }] },
-        ]}
-      >
-        <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: lane.color }]} />
-        <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: lane.color }]} />
-      </Animated.View>
-      <View
         style={[
           styles.core,
           {
@@ -83,6 +145,8 @@ export default function Target({ target, lane, laneY }: Props) {
             borderRadius: lane.size / 2,
             backgroundColor: lane.color,
             shadowColor: lane.color,
+            opacity: isHit ? coreOpacity : 1,
+            transform: [{ scale: isHit ? coreScale : 1 }],
           },
         ]}
       />
@@ -96,6 +160,19 @@ const styles = StyleSheet.create({
     opacity: 0.22,
     shadowOpacity: 1,
     shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  ring: {
+    position: 'absolute',
+    borderWidth: 2,
+  },
+  spark: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    shadowOpacity: 1,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
   },
   spikeSet: {

@@ -18,8 +18,12 @@ export interface TargetState {
   dir: 1 | -1;
   /** Current speed in px/sec, re-rolled within the lane's range on each wall bounce. */
   speed: number;
-  /** Set when hit, used to play a brief hit animation before respawn. */
+  /** Rotation phase in [0, 1), advanced every tick by the game loop (not a standalone animation). */
+  spin: number;
+  /** Set when hit, used to play a brief explosion + respawn-wait animation. */
   hitAt: number | null;
+  /** Randomized respawn wait in ms, rolled fresh at the moment of the hit. */
+  respawnDelay: number;
 }
 
 export interface BulletState {
