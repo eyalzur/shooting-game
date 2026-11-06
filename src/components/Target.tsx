@@ -14,6 +14,10 @@ const SPARK_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
 export default function Target({ target, lane, laneY }: Props) {
   const isHit = target.hitAt !== null;
   const glowSize = lane.size * 1.9;
+  // The explosion is colored by whoever's bullet landed it (blue player,
+  // red bot), not the target's own lane color — that's the whole point:
+  // it reads as "who scored this" at a glance.
+  const explosionColor = target.hitColor ?? lane.color;
 
   // One-shot explosion burst, triggered on the instant a hit lands. It's a
   // finite animation (not a loop), so it can't drift or stall the way an
@@ -66,7 +70,7 @@ export default function Target({ target, lane, laneY }: Props) {
                 width: glowSize,
                 height: glowSize,
                 borderRadius: glowSize / 2,
-                borderColor: lane.color,
+                borderColor: explosionColor,
                 opacity: ringOpacity,
                 transform: [{ scale: ringScale }],
               },
@@ -89,8 +93,8 @@ export default function Target({ target, lane, laneY }: Props) {
                 style={[
                   styles.spark,
                   {
-                    backgroundColor: lane.color,
-                    shadowColor: lane.color,
+                    backgroundColor: explosionColor,
+                    shadowColor: explosionColor,
                     opacity: sparkOpacity,
                     transform: [{ translateX }, { translateY }],
                   },
@@ -143,8 +147,8 @@ export default function Target({ target, lane, laneY }: Props) {
             width: lane.size,
             height: lane.size,
             borderRadius: lane.size / 2,
-            backgroundColor: lane.color,
-            shadowColor: lane.color,
+            backgroundColor: isHit ? explosionColor : lane.color,
+            shadowColor: isHit ? explosionColor : lane.color,
             opacity: isHit ? coreOpacity : 1,
             transform: [{ scale: isHit ? coreScale : 1 }],
           },

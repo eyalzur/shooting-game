@@ -15,6 +15,13 @@ export const COLORS = {
   pink: '#ff5cb3',
   stone: '#a89a85',
   stoneDark: '#5f5346',
+  // Team colors: the player is always blue, the robot opponent always red —
+  // used for cannons, bullets, and hit/explosion effects so it's instantly
+  // clear whose shot did what.
+  blue: '#4d9bff',
+  red: '#ff5252',
+  redLight: '#ff8a80',
+  redDark: '#d32f2f',
 };
 
 // Lanes ordered far -> near. Far targets are bigger (easier to see at
@@ -104,9 +111,9 @@ export const TAP_MAX_DURATION_MS = 250;
 export const VS_MATCH_MS = 60000;
 export const VS_DURATION_OPTIONS = [30000, 60000, 90000];
 export const BOT_LEVELS = [
-  { name: 'Rookie', color: COLORS.cyan, trackSpeed: 100, aimJitter: 46, fireIntervalMs: 1500 },
-  { name: 'Veteran', color: COLORS.purple, trackSpeed: 170, aimJitter: 22, fireIntervalMs: 1150 },
-  { name: 'Ace', color: COLORS.pink, trackSpeed: 250, aimJitter: 8, fireIntervalMs: 850 },
+  { name: 'Rookie', color: COLORS.redLight, trackSpeed: 100, aimJitter: 46, fireIntervalMs: 1500 },
+  { name: 'Veteran', color: COLORS.red, trackSpeed: 170, aimJitter: 22, fireIntervalMs: 1150 },
+  { name: 'Ace', color: COLORS.redDark, trackSpeed: 250, aimJitter: 8, fireIntervalMs: 850 },
 ];
 // How fast the bot's aim wobbles via a random walk (px/sec of drift), on
 // top of its per-level aimJitter amplitude — keeps its aim visibly unsteady

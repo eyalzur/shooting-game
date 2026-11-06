@@ -24,6 +24,8 @@ export interface TargetState {
   hitAt: number | null;
   /** Randomized respawn wait in ms, rolled fresh at the moment of the hit. */
   respawnDelay: number;
+  /** Color of whoever's bullet hit it, so the explosion reads as "who scored this". */
+  hitColor: string | null;
 }
 
 export interface BulletState {

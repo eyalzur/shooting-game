@@ -95,6 +95,7 @@ function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: numb
         return {
           ...t,
           hitAt: null,
+          hitColor: null,
           x: randomXForLane(lane.size, width),
           dir: Math.random() < 0.5 ? 1 : -1,
           speed: randomSpeedForLane(lane),
@@ -131,6 +132,7 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
     speed: randomSpeedForLane(lane),
     spin: Math.random(),
     hitAt: null,
+    hitColor: null,
     respawnDelay: 0,
   }));
 }
@@ -260,13 +262,14 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
           ) {
             t.hitAt = now;
             t.respawnDelay = randomRespawnDelay();
+            t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
             if (!matchOverRef.current) {
               if (b.owner === 'player') {
                 scoreRef.current += lane.points;
                 hitsRef.current += 1;
                 popupsRef.current = [
                   ...popupsRef.current,
-                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: lane.color, createdAt: now },
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: COLORS.blue, createdAt: now },
                 ];
                 triggerScorePulse();
               } else if (bot) {
@@ -401,6 +404,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
         x: playerXRef.current,
         y: playerY - PLAYER_SIZE / 2,
         owner: 'player',
+        color: COLORS.blue,
       },
     ];
     setBullets(bulletsRef.current);
@@ -606,7 +610,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 22,
     fontWeight: 'bold',
-    textShadowColor: COLORS.cyan,
+    textShadowColor: COLORS.blue,
     textShadowRadius: 12,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -619,8 +623,8 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.cyan,
-    shadowColor: COLORS.cyan,
+    backgroundColor: COLORS.blue,
+    shadowColor: COLORS.blue,
     shadowOpacity: 1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
@@ -677,7 +681,7 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 30,
     fontWeight: 'bold',
-    textShadowColor: COLORS.cyan,
+    textShadowColor: COLORS.blue,
     textShadowRadius: 14,
     textShadowOffset: { width: 0, height: 0 },
   },

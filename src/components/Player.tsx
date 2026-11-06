@@ -8,9 +8,9 @@ interface Props {
 }
 
 // No avatar, no character — just the point the shots come from: a glowing
-// cannon tip. Color defaults to the player's cyan; a bot opponent passes
-// its own color so both cannons read as clearly different on one board.
-export default function Player({ x, y, color = COLORS.cyan }: Props) {
+// cannon tip. Color defaults to the player's blue; a bot opponent passes
+// its own red so both cannons read as clearly different on one board.
+export default function Player({ x, y, color = COLORS.blue }: Props) {
   return (
     <View
       style={[
