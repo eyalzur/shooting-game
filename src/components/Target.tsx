@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { EXPLOSION_MS } from '../constants';
+import { BOUNCE_FLASH_MS, EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 
 interface Props {
@@ -37,6 +37,24 @@ export default function Target({ target, lane, laneY }: Props) {
     prevHitAt.current = target.hitAt;
   }, [target.hitAt, explode]);
 
+  // A quick bright flash + pop every time the target bounces off a side
+  // wall — another finite, one-shot animation triggered off state the game
+  // loop already tracks (bounceId), same safe pattern as the explosion.
+  const bounce = useRef(new Animated.Value(0)).current;
+  const prevBounceId = useRef(target.bounceId);
+  useEffect(() => {
+    if (target.bounceId !== prevBounceId.current) {
+      bounce.setValue(1);
+      Animated.timing(bounce, {
+        toValue: 0,
+        duration: BOUNCE_FLASH_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+    prevBounceId.current = target.bounceId;
+  }, [target.bounceId, bounce]);
+
   // Rotation is computed straight from the target's own spin phase, which
   // the main game loop advances every tick — no independent animation clock
   // to fall out of sync or silently stop.
@@ -48,6 +66,8 @@ export default function Target({ target, lane, laneY }: Props) {
   const coreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
   const ringScale = explode.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] });
   const ringOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] });
+  const bouncePop = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
+  const bounceFlashOpacity = bounce;
 
   return (
     <View
@@ -150,10 +170,25 @@ export default function Target({ target, lane, laneY }: Props) {
             backgroundColor: isHit ? explosionColor : lane.color,
             shadowColor: isHit ? explosionColor : lane.color,
             opacity: isHit ? coreOpacity : 1,
-            transform: [{ scale: isHit ? coreScale : 1 }],
+            transform: [{ scale: isHit ? coreScale : bouncePop }],
           },
         ]}
       />
+      {!isHit && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.bounceFlash,
+            {
+              width: lane.size,
+              height: lane.size,
+              borderRadius: lane.size / 2,
+              opacity: bounceFlashOpacity,
+              transform: [{ scale: bouncePop }],
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -213,5 +248,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
+  },
+  bounceFlash: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    shadowColor: '#ffffff',
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
 });

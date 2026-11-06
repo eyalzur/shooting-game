@@ -78,8 +78,10 @@ export const HIT_BAND = 26; // px tolerance around a lane's y for collision
 // never the same rhythm twice.
 export const RESPAWN_MIN_MS = 500;
 export const RESPAWN_MAX_MS = 1300;
-export const HIT_FLASH_MS = 180;
 export const EXPLOSION_MS = 420;
+// A target flashes bright and pops slightly every time it bounces off a
+// side wall — a small finite animation, never a loop.
+export const BOUNCE_FLASH_MS = 220;
 // How long a "+N" score popup floats up and fades before it's removed.
 export const SCORE_POPUP_MS = 900;
 

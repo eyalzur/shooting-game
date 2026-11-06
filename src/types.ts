@@ -26,6 +26,8 @@ export interface TargetState {
   respawnDelay: number;
   /** Color of whoever's bullet hit it, so the explosion reads as "who scored this". */
   hitColor: string | null;
+  /** Bumped every time the target bounces off a side wall, so a component can watch it and flash. */
+  bounceId: number;
 }
 
 export interface BulletState {

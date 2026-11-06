@@ -108,17 +108,20 @@ function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: numb
     let nextX = t.x + t.dir * t.speed * dt;
     let nextDir = t.dir;
     let nextSpeed = t.speed;
+    let nextBounceId = t.bounceId;
     if (nextX < min) {
       nextX = min;
       nextDir = 1;
       nextSpeed = randomSpeedForLane(lane);
+      nextBounceId += 1;
     } else if (nextX > max) {
       nextX = max;
       nextDir = -1;
       nextSpeed = randomSpeedForLane(lane);
+      nextBounceId += 1;
     }
     const nextSpin = (t.spin + dt / (STAR_SPIN_MS / 1000)) % 1;
-    return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin };
+    return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin, bounceId: nextBounceId };
   });
 }
 
@@ -133,6 +136,7 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
     hitAt: null,
     hitColor: null,
     respawnDelay: 0,
+    bounceId: 0,
   }));
 }
 

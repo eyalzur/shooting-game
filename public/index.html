@@ -31,6 +31,16 @@
         height: 100%;
         flex: 1;
       }
+      /* No selectable text, no long-press callouts, no tap-highlight flash —
+         this is a game, not a document. */
+      * {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+      }
     </style>
   </head>
 
