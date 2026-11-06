@@ -107,7 +107,7 @@ export const FIRE_RECHARGE_STEP = 0.035; // -3.5% recharge time per level
 // A touch counts as "fire" only if it barely moved and was quick, so a
 // swipe-to-move gesture never also fires a shot.
 export const TAP_MAX_DISTANCE = 18; // px
-export const TAP_MAX_DURATION_MS = 250;
+export const TAP_MAX_DURATION_MS = 200;
 
 // Match length is picked once, at the home screen, before either mode —
 // solo or vs. null means no timer: play until you tap Home (solo's

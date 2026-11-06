@@ -488,19 +488,22 @@ export default function GameScreen({
 
   // A touch does one of two things, decided by how it ends: let go quickly
   // without dragging and it's a tap — fires in place, cannon doesn't move.
-  // Hold it down (past TAP_MAX_DURATION_MS) or drag it (past
-  // TAP_MAX_DISTANCE) and it becomes a hold — the cannon jumps to that
-  // column and tracks the finger, but no shot fires. Which one it is isn't
-  // known at touch-down, so a short timer plus a distance check upgrade a
-  // touch to "hold" the moment either threshold is crossed; release before
-  // that and it's still a tap. Distances are measured from raw touch
-  // coordinates (not PanResponder's own gestureState.dx/dy), which reports
-  // unreliably on some mobile browsers.
+  // Hold it still past TAP_MAX_DURATION_MS and it becomes a hold — the
+  // cannon eases over to that column (animateTo). Drag past TAP_MAX_DISTANCE
+  // — whether that happens before or after the hold timer — and the cannon
+  // instead tracks the finger 1:1 every move event (trackTo), no easing, so
+  // it reads as the finger pushing it rather than chasing a series of little
+  // slides. No shot fires either way. Which one it is isn't known at
+  // touch-down, so a short timer plus a distance check upgrade a touch to
+  // "hold" the moment either threshold is crossed; release before that and
+  // it's still a tap. Distances are measured from raw touch coordinates (not
+  // PanResponder's own gestureState.dx/dy), which reports unreliably on some
+  // mobile browsers.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const lastTouchXRef = useRef(0);
   const isHoldRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const moveTo = (pageX: number) => {
+  const animateTo = (pageX: number) => {
     const clamped = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
     playerXRef.current = clamped;
     const dist = Math.abs(clamped - playerXAnimTargetRef.current);
@@ -515,6 +518,14 @@ export default function GameScreen({
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
+  };
+  // setValue stops any in-flight animateTo slide and snaps straight to the
+  // finger — used while actively dragging, so motion is 1:1 with the touch.
+  const trackTo = (pageX: number) => {
+    const clamped = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
+    playerXRef.current = clamped;
+    playerXAnimTargetRef.current = clamped;
+    playerXAnim.setValue(clamped);
   };
   useEffect(() => {
     return () => {
@@ -537,7 +548,7 @@ export default function GameScreen({
         if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
         holdTimerRef.current = setTimeout(() => {
           isHoldRef.current = true;
-          moveTo(lastTouchXRef.current);
+          animateTo(lastTouchXRef.current);
         }, TAP_MAX_DURATION_MS);
       },
       onPanResponderMove: (evt) => {
@@ -551,7 +562,7 @@ export default function GameScreen({
           isHoldRef.current = true;
           if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
         }
-        moveTo(evt.nativeEvent.pageX);
+        trackTo(evt.nativeEvent.pageX);
       },
       onPanResponderRelease: () => {
         if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
