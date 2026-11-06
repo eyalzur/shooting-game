@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
+import { APP_VERSION, COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
 import { playUiTap } from '../utils/sound';
 
 interface Props {
@@ -14,6 +14,8 @@ interface Props {
   onToggleSound: () => void;
   currency: number;
   onOpenShop: () => void;
+  onOpenPlayer: () => void;
+  onOpenChangelog: () => void;
 }
 
 function MenuButton({
@@ -57,6 +59,8 @@ export default function HomeScreen({
   onToggleSound,
   currency,
   onOpenShop,
+  onOpenPlayer,
+  onOpenChangelog,
 }: Props) {
   const { width, height } = useWindowDimensions();
   const [matchMs, setMatchMs] = useState<number | null>(DURATION_OPTIONS[1].ms);
@@ -77,6 +81,17 @@ export default function HomeScreen({
 
       <Text style={styles.title}>{GAME_NAME}</Text>
       <Text style={styles.subtitle}>Take aim. Hold your ground.</Text>
+
+      <PressableScale
+        onPress={() => {
+          playUiTap();
+          onOpenChangelog();
+        }}
+        style={styles.versionTag}
+        scaleTo={0.9}
+      >
+        <Text style={styles.versionTagText}>v{APP_VERSION} · WHAT'S NEW</Text>
+      </PressableScale>
 
       <View style={styles.scoreBoard}>
         <View style={styles.scoreBlock}>
@@ -126,21 +141,34 @@ export default function HomeScreen({
         />
       </View>
 
-      <PressableScale
-        onPress={() => {
-          playUiTap();
-          onOpenShop();
-        }}
-        style={[styles.shopDock, { width }]}
-        scaleTo={0.97}
-      >
-        <Text style={styles.shopDockIcon}>🛠️</Text>
-        <Text style={styles.shopDockLabel}>SHOP</Text>
-        <View style={styles.shopDockDivider} />
-        <Text style={styles.shopDockCurrency}>
-          {CURRENCY_ICON} {currency}
-        </Text>
-      </PressableScale>
+      <View style={[styles.dock, { width }]}>
+        <PressableScale
+          onPress={() => {
+            playUiTap();
+            onOpenPlayer();
+          }}
+          style={styles.dockHalf}
+          scaleTo={0.97}
+        >
+          <Text style={styles.dockIcon}>🚀</Text>
+          <Text style={styles.dockLabel}>PLAYER</Text>
+        </PressableScale>
+        <View style={styles.dockDivider} />
+        <PressableScale
+          onPress={() => {
+            playUiTap();
+            onOpenShop();
+          }}
+          style={styles.dockHalf}
+          scaleTo={0.97}
+        >
+          <Text style={styles.dockIcon}>🛠️</Text>
+          <Text style={styles.dockLabel}>SHOP</Text>
+          <Text style={styles.dockCurrency}>
+            {CURRENCY_ICON} {currency}
+          </Text>
+        </PressableScale>
+      </View>
     </View>
   );
 }
@@ -171,38 +199,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
-  shopDock: {
+  dock: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     height: 64,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+    alignItems: 'stretch',
     backgroundColor: 'rgba(16,12,38,0.85)',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
-  shopDockIcon: {
+  dockHalf: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  dockDivider: {
+    width: 1,
+    marginVertical: 14,
+    backgroundColor: COLORS.border,
+  },
+  dockIcon: {
     fontSize: 18,
   },
-  shopDockLabel: {
+  dockLabel: {
     color: COLORS.textPrimary,
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 2,
   },
-  shopDockDivider: {
-    width: 1,
-    height: 18,
-    backgroundColor: COLORS.border,
-  },
-  shopDockCurrency: {
+  dockCurrency: {
     color: COLORS.purple,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
+    marginLeft: 2,
   },
   title: {
     color: COLORS.textPrimary,
@@ -219,10 +253,23 @@ const styles = StyleSheet.create({
     marginTop: 8,
     letterSpacing: 0.5,
   },
+  versionTag: {
+    marginTop: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: 'rgba(90,216,255,0.1)',
+  },
+  versionTagText: {
+    color: COLORS.cyan,
+    fontSize: 10,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
   scoreBoard: {
     flexDirection: 'row',
     gap: 36,
-    marginTop: 44,
+    marginTop: 30,
     marginBottom: 44,
   },
   scoreBlock: {

@@ -1,8 +1,7 @@
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
-import Player from '../components/Player';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, CURRENCY_NAME, PLAYER_SIZE, SHOP_ITEMS } from '../constants';
+import { COLORS, CURRENCY_ICON, CURRENCY_NAME, SHOP_ITEMS } from '../constants';
 import { ShopItemDef, UpgradeId } from '../types';
 import { playPurchase, playUiTap } from '../utils/sound';
 
@@ -12,8 +11,6 @@ interface Props {
   onPurchase: (id: UpgradeId, price: number) => void;
   onBack: () => void;
 }
-
-const AVATAR_BOX = 120;
 
 function ShopItemCard({
   item,
@@ -47,12 +44,8 @@ function ShopItemCard({
   );
 }
 
-// The cannon doubles as the player's "avatar" — this game has no other
-// character art — so the shop opens on a preview of it plus a strip of
-// badges for whatever's equipped, before the purchasable list.
 export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onBack }: Props) {
   const { width, height } = useWindowDimensions();
-  const owned = SHOP_ITEMS.filter((item) => ownedUpgrades.includes(item.id));
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -69,23 +62,6 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onBack
       </PressableScale>
 
       <Text style={styles.title}>SHOP</Text>
-
-      <View style={styles.avatarBox}>
-        <View style={styles.avatarGlow} />
-        <Player x={AVATAR_BOX / 2} y={AVATAR_BOX / 2 + PLAYER_SIZE / 4} />
-      </View>
-
-      <View style={styles.badgeRow}>
-        {owned.length === 0 ? (
-          <Text style={styles.badgeEmpty}>No upgrades equipped yet</Text>
-        ) : (
-          owned.map((item) => (
-            <View key={item.id} style={styles.badge}>
-              <Text style={styles.badgeIcon}>{item.icon}</Text>
-            </View>
-          ))
-        )}
-      </View>
 
       <View style={styles.balance}>
         <Text style={styles.balanceIcon}>{CURRENCY_ICON}</Text>
@@ -148,57 +124,12 @@ const styles = StyleSheet.create({
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
   },
-  avatarBox: {
-    width: AVATAR_BOX,
-    height: AVATAR_BOX,
-    marginTop: 14,
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarGlow: {
-    position: 'absolute',
-    width: AVATAR_BOX,
-    height: AVATAR_BOX,
-    borderRadius: AVATAR_BOX / 2,
-    backgroundColor: COLORS.blue,
-    opacity: 0.12,
-    shadowColor: COLORS.blue,
-    shadowOpacity: 1,
-    shadowRadius: 30,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  badgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-    minHeight: 30,
-    alignItems: 'center',
-  },
-  badgeEmpty: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontStyle: 'italic',
-  },
-  badge: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.7)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  badgeIcon: {
-    fontSize: 14,
-  },
   balance: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 16,
-    marginBottom: 22,
+    marginTop: 28,
+    marginBottom: 26,
   },
   balanceIcon: {
     fontSize: 18,

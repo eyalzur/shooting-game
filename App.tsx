@@ -6,7 +6,9 @@ import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
+import PlayerScreen from './src/screens/PlayerScreen';
 import ShopScreen from './src/screens/ShopScreen';
+import VersionLogScreen from './src/screens/VersionLogScreen';
 import { SPLASH_MIN_DURATION_MS } from './src/constants';
 import {
   getBestScore,
@@ -21,7 +23,7 @@ import {
 import { setSoundEnabled } from './src/utils/sound';
 import { BotConfig, GameMode, UpgradeId } from './src/types';
 
-type Phase = 'splash' | 'home' | 'botSelect' | 'playing' | 'shop';
+type Phase = 'splash' | 'home' | 'botSelect' | 'playing' | 'shop' | 'player' | 'changelog';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('splash');
@@ -123,6 +125,8 @@ export default function App() {
             onToggleSound={toggleSound}
             currency={currency}
             onOpenShop={() => setPhase('shop')}
+            onOpenPlayer={() => setPhase('player')}
+            onOpenChangelog={() => setPhase('changelog')}
           />
         )}
         {phase === 'botSelect' && (
@@ -136,6 +140,14 @@ export default function App() {
             onBack={() => setPhase('home')}
           />
         )}
+        {phase === 'player' && (
+          <PlayerScreen
+            ownedUpgrades={ownedUpgrades}
+            onOpenShop={() => setPhase('shop')}
+            onBack={() => setPhase('home')}
+          />
+        )}
+        {phase === 'changelog' && <VersionLogScreen onBack={() => setPhase('home')} />}
         {phase === 'playing' && (
           <GameScreen
             key={runId}

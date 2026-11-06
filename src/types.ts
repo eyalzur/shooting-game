@@ -78,6 +78,17 @@ export interface ShopItemDef {
   price: number;
 }
 
+/** One release note on the changelog screen. icon is a big emoji shown like
+ * an illustration (this project has no image-asset pipeline), not just a
+ * bullet marker. */
+export interface ChangelogEntry {
+  version: string;
+  date: string;
+  icon: string;
+  title: string;
+  bullets: string[];
+}
+
 export interface BotConfig {
   name: string;
   color: string;

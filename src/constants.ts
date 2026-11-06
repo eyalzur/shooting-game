@@ -1,8 +1,79 @@
-import { LaneConfig, ShopItemDef } from './types';
+import { ChangelogEntry, LaneConfig, ShopItemDef } from './types';
 
 export const GAME_NAME = 'Nova Strike';
 
 export const SPLASH_MIN_DURATION_MS = 1500;
+
+// Newest first. APP_VERSION is derived from the top entry so the two can
+// never drift out of sync — bump the game by adding a new entry here, not
+// by editing a version string somewhere else.
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.5.0',
+    date: '2026-11-07',
+    icon: '🗂️',
+    title: 'Player profile & patch notes',
+    bullets: [
+      'New PLAYER screen: a build sheet showing every upgrade, owned or locked.',
+      "You're looking at it — a changelog screen, reachable from Home.",
+    ],
+  },
+  {
+    version: '1.4.0',
+    date: '2026-11-06',
+    icon: '🛒',
+    title: 'The shop opens',
+    bullets: [
+      'Renamed Strafe Strike → Nova Strike.',
+      'Stardust currency: earned from pickups and vs-bot wins, kept even if you lose.',
+      'Shop upgrades: Double Shot, Swift Cannon (move speed), Hot Rounds (bullet speed).',
+      'A big lightning banner when rapid fire kicks in, plus press feedback on every button.',
+    ],
+  },
+  {
+    version: '1.3.0',
+    date: '2026-11-06',
+    icon: '✨',
+    title: 'Enhancements',
+    bullets: [
+      'Golden stars worth double score.',
+      'Pickups fall from broken targets: bonus score, rapid fire, or Stardust.',
+    ],
+  },
+  {
+    version: '1.2.0',
+    date: '2026-11-06',
+    icon: '👆',
+    title: 'Touch controls',
+    bullets: [
+      'Tap to fire in place — the cannon stays put.',
+      'Hold or drag to slide the cannon to your finger instead.',
+    ],
+  },
+  {
+    version: '1.1.0',
+    date: '2026-11-06',
+    icon: '💥',
+    title: 'Explosions, sound, a real icon',
+    bullets: [
+      'Three explosion styles: burst, shatter, implode.',
+      'Sound effects and music, with an on/off toggle.',
+      'A new home-screen icon.',
+    ],
+  },
+  {
+    version: '1.0.0',
+    date: '2026-11-05',
+    icon: '🎯',
+    title: 'Nova Strike launches',
+    bullets: [
+      'Spinning star targets across three lanes.',
+      'Single Player and VS Robo Player modes.',
+      'Difficulty climbs the longer you keep landing hits.',
+    ],
+  },
+];
+export const APP_VERSION = CHANGELOG[0].version;
 
 export const COLORS = {
   background: '#05030f',
