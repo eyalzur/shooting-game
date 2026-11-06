@@ -22,6 +22,9 @@ export const COLORS = {
   red: '#ff5252',
   redLight: '#ff8a80',
   redDark: '#d32f2f',
+  // Win/lose mood colors for the match result screen.
+  gold: '#ffd25a',
+  sad: '#7a6878',
 };
 
 // Lanes ordered far -> near. Far targets are bigger (easier to see at

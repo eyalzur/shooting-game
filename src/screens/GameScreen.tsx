@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
@@ -205,6 +205,37 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
       Animated.spring(scorePulse, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
   };
+
+  // Match result mood: a bouncy, bright entrance for a win, a slow heavy
+  // settle for a loss, a plain fade for a draw — same card, different feel.
+  const outcome: 'win' | 'lose' | 'draw' =
+    scoreRef.current > botScoreRef.current ? 'win' : scoreRef.current < botScoreRef.current ? 'lose' : 'draw';
+  const resultEnter = useRef(new Animated.Value(0)).current;
+  const winBurst = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!matchOver) return;
+    resultEnter.setValue(0);
+    if (outcome === 'win') {
+      Animated.spring(resultEnter, { toValue: 1, friction: 5, tension: 110, useNativeDriver: true }).start();
+      winBurst.setValue(0);
+      Animated.timing(winBurst, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else if (outcome === 'lose') {
+      Animated.timing(resultEnter, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(resultEnter, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [matchOver]);
 
   // difficultyLevelRef is the source of truth, advanced inside the game
   // loop; difficultyLevel state only mirrors it for rendering, so this must
@@ -542,19 +573,65 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
         )}
 
         {isVsBot && matchOver && bot && (
-          <View style={styles.resultOverlay}>
-            <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>
-                {scoreRef.current > botScoreRef.current
-                  ? 'YOU WIN!'
-                  : scoreRef.current < botScoreRef.current
-                    ? `${bot.name.toUpperCase()} WINS`
-                    : 'DRAW'}
+          <View
+            style={[
+              styles.resultOverlay,
+              outcome === 'lose' && styles.resultOverlayLose,
+            ]}
+          >
+            {outcome === 'win' && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.winBurst,
+                  {
+                    opacity: winBurst.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.5, 0] }),
+                    transform: [
+                      { scale: winBurst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.6] }) },
+                    ],
+                  },
+                ]}
+              />
+            )}
+            <Animated.View
+              style={[
+                styles.resultCard,
+                outcome === 'win' && styles.resultCardWin,
+                outcome === 'lose' && styles.resultCardLose,
+                {
+                  opacity: resultEnter,
+                  transform: [
+                    { scale: resultEnter.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                    {
+                      translateY: resultEnter.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: outcome === 'lose' ? [-16, 0] : [18, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.resultTitle,
+                  outcome === 'win' && styles.resultTitleWin,
+                  outcome === 'lose' && styles.resultTitleLose,
+                ]}
+              >
+                {outcome === 'win' ? 'YOU WIN!' : outcome === 'lose' ? 'YOU LOSE' : 'DRAW'}
               </Text>
               <View style={styles.resultScores}>
                 <View style={styles.resultScoreBlock}>
                   <Text style={styles.resultLabel}>YOU</Text>
-                  <Text style={styles.resultValue}>{scoreRef.current}</Text>
+                  <Text
+                    style={[
+                      styles.resultValue,
+                      outcome === 'lose' && { opacity: 0.7, textShadowColor: 'transparent' },
+                    ]}
+                  >
+                    {scoreRef.current}
+                  </Text>
                 </View>
                 <View style={styles.resultScoreBlock}>
                   <Text style={styles.resultLabel}>{bot.name.toUpperCase()}</Text>
@@ -571,7 +648,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
                   <Text style={styles.resultButtonText}>HOME</Text>
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
           </View>
         )}
       </View>
@@ -668,6 +745,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  resultOverlayLose: {
+    backgroundColor: 'rgba(5,3,10,0.92)',
+  },
+  winBurst: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 1,
+    shadowRadius: 80,
+    shadowOffset: { width: 0, height: 0 },
+  },
   resultCard: {
     width: 280,
     paddingVertical: 28,
@@ -678,6 +769,17 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
   },
+  resultCardWin: {
+    borderColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  resultCardLose: {
+    borderColor: 'rgba(122,104,120,0.4)',
+    backgroundColor: 'rgba(12,9,18,0.75)',
+  },
   resultTitle: {
     color: COLORS.textPrimary,
     fontSize: 26,
@@ -686,6 +788,15 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.cyan,
     textShadowRadius: 18,
     textShadowOffset: { width: 0, height: 0 },
+  },
+  resultTitleWin: {
+    textShadowColor: COLORS.gold,
+    textShadowRadius: 26,
+  },
+  resultTitleLose: {
+    color: COLORS.textSecondary,
+    textShadowColor: COLORS.sad,
+    textShadowRadius: 10,
   },
   resultScores: {
     flexDirection: 'row',
