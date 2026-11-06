@@ -6,17 +6,44 @@ import { COLORS, GAME_NAME } from '../constants';
 interface Props {
   bestScore: number;
   lastScore: number | null;
-  onStart: () => void;
+  onStartSolo: () => void;
+  onStartVs: () => void;
 }
 
-export default function HomeScreen({ bestScore, lastScore, onStart }: Props) {
-  const { width, height } = useWindowDimensions();
+function MenuButton({
+  label,
+  variant,
+  onPress,
+}: {
+  label: string;
+  variant: 'primary' | 'secondary';
+  onPress: () => void;
+}) {
   const pressScale = useRef(new Animated.Value(1)).current;
-
   const onPressIn = () =>
     Animated.spring(pressScale, { toValue: 0.92, useNativeDriver: true, speed: 30 }).start();
   const onPressOut = () =>
     Animated.spring(pressScale, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+
+  return (
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      <Animated.View
+        style={[
+          styles.button,
+          variant === 'secondary' && styles.buttonSecondary,
+          { transform: [{ scale: pressScale }] },
+        ]}
+      >
+        <Text style={[styles.buttonLabel, variant === 'secondary' && styles.buttonLabelSecondary]}>
+          {label}
+        </Text>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartVs }: Props) {
+  const { width, height } = useWindowDimensions();
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -38,11 +65,10 @@ export default function HomeScreen({ bestScore, lastScore, onStart }: Props) {
         )}
       </View>
 
-      <Pressable onPress={onStart} onPressIn={onPressIn} onPressOut={onPressOut}>
-        <Animated.View style={[styles.startButton, { transform: [{ scale: pressScale }] }]}>
-          <Text style={styles.startLabel}>START GAME</Text>
-        </Animated.View>
-      </Pressable>
+      <View style={styles.buttonStack}>
+        <MenuButton label="SINGLE PLAYER" variant="primary" onPress={onStartSolo} />
+        <MenuButton label="VS ROBO PLAYER" variant="secondary" onPress={onStartVs} />
+      </View>
     </View>
   );
 }
@@ -100,7 +126,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     opacity: 0.85,
   },
-  startButton: {
+  buttonStack: {
+    gap: 16,
+    alignItems: 'center',
+  },
+  button: {
     paddingVertical: 18,
     paddingHorizontal: 52,
     borderRadius: 32,
@@ -111,8 +141,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.8,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 0 },
+    minWidth: 260,
+    alignItems: 'center',
   },
-  startLabel: {
+  buttonSecondary: {
+    backgroundColor: 'rgba(255,92,179,0.1)',
+    borderColor: COLORS.pink,
+    shadowColor: COLORS.pink,
+  },
+  buttonLabel: {
     color: COLORS.textPrimary,
     fontSize: 18,
     fontWeight: 'bold',
@@ -120,5 +157,9 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.cyan,
     textShadowRadius: 14,
     textShadowOffset: { width: 0, height: 0 },
+  },
+  buttonLabelSecondary: {
+    fontSize: 15,
+    textShadowColor: COLORS.pink,
   },
 });

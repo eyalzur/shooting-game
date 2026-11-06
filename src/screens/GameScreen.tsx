@@ -33,8 +33,9 @@ import {
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
+  VS_MATCH_MS,
 } from '../constants';
-import { BulletState, LaneConfig, ScorePopupState, TargetState } from '../types';
+import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
 
@@ -97,10 +98,13 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
 }
 
 interface Props {
+  mode?: GameMode;
+  bot?: BotConfig;
   onExit: (finalScore: number) => void;
+  onPlayAgain?: () => void;
 }
 
-export default function GameScreen({ onExit }: Props) {
+export default function GameScreen({ mode = 'solo', bot, onExit, onPlayAgain }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
@@ -122,11 +126,23 @@ export default function GameScreen({ onExit }: Props) {
   const rafRef = useRef<number | null>(null);
   const chargesRef = useRef(FIRE_MAX_CHARGES);
 
+  // VS mode: a simulated bot opponent, scored independently of the player's
+  // own targets — it just rolls for a hit on its own interval, timed to a
+  // fixed match length.
+  const matchStartRef = useRef(Date.now());
+  const matchOverRef = useRef(false);
+  const botScoreRef = useRef(0);
+  const botDisplayScoreRef = useRef(0);
+  const botNextShotAtRef = useRef(matchStartRef.current + (bot?.fireIntervalMs ?? 0) * (0.4 + Math.random() * 0.4));
+
   const [playerX, setPlayerX] = useState(playerXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [popups, setPopups] = useState(popupsRef.current);
   const [displayScore, setDisplayScore] = useState(0);
+  const [botDisplayScore, setBotDisplayScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(Math.ceil(VS_MATCH_MS / 1000));
+  const [matchOver, setMatchOver] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
@@ -166,6 +182,17 @@ export default function GameScreen({ onExit }: Props) {
       // Targets: bounce within lane bounds, or wait to respawn after a hit.
       const now = Date.now();
       const lanes = effectiveLanesRef.current;
+
+      // VS mode match timer — once it hits zero, scoring freezes for both
+      // sides but the scene keeps animating behind the result overlay.
+      let timeLeftMs = VS_MATCH_MS;
+      if (mode === 'vs') {
+        timeLeftMs = Math.max(0, VS_MATCH_MS - (now - matchStartRef.current));
+        if (timeLeftMs <= 0 && !matchOverRef.current) {
+          matchOverRef.current = true;
+          setMatchOver(true);
+        }
+      }
       targetsRef.current = targetsRef.current.map((t) => {
         if (t.hitAt !== null) {
           if (now - t.hitAt > t.respawnDelay) {
@@ -221,20 +248,22 @@ export default function GameScreen({ onExit }: Props) {
           ) {
             t.hitAt = now;
             t.respawnDelay = randomRespawnDelay();
-            scoreRef.current += lane.points;
-            hitsRef.current += 1;
-            popupsRef.current = [
-              ...popupsRef.current,
-              {
-                id: ++idCounterRef.current,
-                x: t.x,
-                y: laneY,
-                value: lane.points,
-                color: lane.color,
-                createdAt: now,
-              },
-            ];
-            triggerScorePulse();
+            if (!matchOverRef.current) {
+              scoreRef.current += lane.points;
+              hitsRef.current += 1;
+              popupsRef.current = [
+                ...popupsRef.current,
+                {
+                  id: ++idCounterRef.current,
+                  x: t.x,
+                  y: laneY,
+                  value: lane.points,
+                  color: lane.color,
+                  createdAt: now,
+                },
+              ];
+              triggerScorePulse();
+            }
             hitSomething = true;
             break;
           }
@@ -274,6 +303,36 @@ export default function GameScreen({ onExit }: Props) {
       const scoreDiff = scoreRef.current - displayScoreRef.current;
       displayScoreRef.current =
         Math.abs(scoreDiff) < 0.5 ? scoreRef.current : displayScoreRef.current + scoreDiff * Math.min(1, dt * 8);
+
+      // Bot opponent: rolls for a hit on its own clock, independent of the
+      // player's targets — simple to balance per level, nothing to simulate
+      // physically.
+      if (mode === 'vs' && bot && !matchOverRef.current) {
+        if (now >= botNextShotAtRef.current) {
+          if (Math.random() < bot.hitChance) {
+            const botLane = LANES[Math.floor(Math.random() * LANES.length)];
+            botScoreRef.current += botLane.points;
+            popupsRef.current = [
+              ...popupsRef.current,
+              {
+                id: ++idCounterRef.current,
+                x: width * 0.85,
+                y: 46,
+                value: botLane.points,
+                color: bot.color,
+                createdAt: now,
+              },
+            ];
+          }
+          botNextShotAtRef.current = now + bot.fireIntervalMs * (0.7 + Math.random() * 0.6);
+        }
+        const botDiff = botScoreRef.current - botDisplayScoreRef.current;
+        botDisplayScoreRef.current =
+          Math.abs(botDiff) < 0.5 ? botScoreRef.current : botDisplayScoreRef.current + botDiff * Math.min(1, dt * 8);
+        setBotDisplayScore(Math.round(botDisplayScoreRef.current));
+        setTimeLeft(Math.ceil(timeLeftMs / 1000));
+      }
+
       popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
 
       setTargets(targetsRef.current);
@@ -365,11 +424,20 @@ export default function GameScreen({ onExit }: Props) {
           <Text style={styles.homeButtonText}>⟵ HOME</Text>
         </Pressable>
         <View style={styles.statsRow}>
-          <Text style={styles.scoreLabel}>SCORE</Text>
+          <Text style={styles.scoreLabel}>{mode === 'vs' ? 'YOU' : 'SCORE'}</Text>
           <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
             {displayScore}
           </Animated.Text>
-          <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+          {mode === 'vs' && bot ? (
+            <>
+              <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>
+              <Text style={[styles.levelLabel, { color: bot.color }]}>
+                {bot.name.toUpperCase()} {botDisplayScore}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+          )}
           <View style={styles.chargeRow}>
             {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
               <View
@@ -400,6 +468,40 @@ export default function GameScreen({ onExit }: Props) {
         ))}
         <Player x={playerX} y={playerY} />
         <LevelUpBanner event={levelUpEvent} />
+
+        {mode === 'vs' && matchOver && bot && (
+          <View style={styles.resultOverlay}>
+            <View style={styles.resultCard}>
+              <Text style={styles.resultTitle}>
+                {scoreRef.current > botScoreRef.current
+                  ? 'YOU WIN!'
+                  : scoreRef.current < botScoreRef.current
+                    ? `${bot.name.toUpperCase()} WINS`
+                    : 'DRAW'}
+              </Text>
+              <View style={styles.resultScores}>
+                <View style={styles.resultScoreBlock}>
+                  <Text style={styles.resultLabel}>YOU</Text>
+                  <Text style={styles.resultValue}>{scoreRef.current}</Text>
+                </View>
+                <View style={styles.resultScoreBlock}>
+                  <Text style={styles.resultLabel}>{bot.name.toUpperCase()}</Text>
+                  <Text style={[styles.resultValue, { color: bot.color, textShadowColor: bot.color }]}>
+                    {botScoreRef.current}
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.resultButtons}>
+                <Pressable onPress={onPlayAgain} style={styles.resultButtonPrimary}>
+                  <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
+                </Pressable>
+                <Pressable onPress={() => onExit(scoreRef.current)} style={styles.resultButtonSecondary}>
+                  <Text style={styles.resultButtonText}>HOME</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -483,6 +585,84 @@ const styles = StyleSheet.create({
   playArea: {
     backgroundColor: COLORS.background,
     overflow: 'hidden',
+  },
+  resultOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(5,3,15,0.82)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultCard: {
+    width: 280,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    backgroundColor: COLORS.panel,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  resultTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 26,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    textShadowColor: COLORS.cyan,
+    textShadowRadius: 18,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  resultScores: {
+    flexDirection: 'row',
+    gap: 36,
+    marginTop: 24,
+    marginBottom: 28,
+  },
+  resultScoreBlock: {
+    alignItems: 'center',
+  },
+  resultLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    letterSpacing: 1.5,
+    marginBottom: 4,
+  },
+  resultValue: {
+    color: COLORS.textPrimary,
+    fontSize: 30,
+    fontWeight: 'bold',
+    textShadowColor: COLORS.cyan,
+    textShadowRadius: 14,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  resultButtons: {
+    gap: 12,
+    width: '100%',
+  },
+  resultButtonPrimary: {
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(90,216,255,0.14)',
+    borderWidth: 1.5,
+    borderColor: COLORS.cyan,
+    alignItems: 'center',
+  },
+  resultButtonSecondary: {
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(138,92,255,0.1)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    alignItems: 'center',
+  },
+  resultButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
   },
 });
 

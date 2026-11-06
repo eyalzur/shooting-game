@@ -40,3 +40,12 @@ export interface ScorePopupState {
   color: string;
   createdAt: number;
 }
+
+export type GameMode = 'solo' | 'vs';
+
+export interface BotConfig {
+  name: string;
+  hitChance: number;
+  fireIntervalMs: number;
+  color: string;
+}
