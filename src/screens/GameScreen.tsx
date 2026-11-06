@@ -7,9 +7,12 @@ import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
   BULLET_SPEED,
+  BULLET_SPEED_MAX_MULTIPLIER,
+  BULLET_SPEED_STEP,
   COLORS,
   DIFFICULTY_MAX_LEVEL,
   DIFFICULTY_MIN_SIZE_MULTIPLIER,
+  DIFFICULTY_RANGE_STEP,
   DIFFICULTY_SIZE_STEP,
   DIFFICULTY_SPEED_STEP,
   DIFFICULTY_STEP_HITS,
@@ -26,12 +29,31 @@ import { BulletState, LaneConfig, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
 
-// Targets get a bit faster and a bit smaller every DIFFICULTY_STEP_HITS hits,
-// capped at DIFFICULTY_MAX_LEVEL so it ramps up without becoming impossible.
+// Targets get a bit faster, smaller, and more erratic every
+// DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
+// without becoming impossible. The min/max speed range widens with level too,
+// so bounces become less predictable as the player improves.
 function getEffectiveLanes(level: number): LaneConfig[] {
   const speedMul = 1 + level * DIFFICULTY_SPEED_STEP;
   const sizeMul = Math.max(DIFFICULTY_MIN_SIZE_MULTIPLIER, 1 - level * DIFFICULTY_SIZE_STEP);
-  return LANES.map((lane) => ({ ...lane, size: lane.size * sizeMul, speed: lane.speed * speedMul }));
+  const rangeMul = 1 + level * DIFFICULTY_RANGE_STEP;
+  return LANES.map((lane) => {
+    const baseMin = lane.minSpeed * speedMul;
+    const baseMax = lane.maxSpeed * speedMul;
+    const center = (baseMin + baseMax) / 2;
+    const half = ((baseMax - baseMin) / 2) * rangeMul;
+    return {
+      ...lane,
+      size: lane.size * sizeMul,
+      minSpeed: center - half,
+      maxSpeed: center + half,
+    };
+  });
+}
+
+function getEffectiveBulletSpeed(level: number) {
+  const mul = Math.min(BULLET_SPEED_MAX_MULTIPLIER, 1 + level * BULLET_SPEED_STEP);
+  return BULLET_SPEED * mul;
 }
 
 function randomXForLane(size: number, width: number) {
@@ -40,12 +62,17 @@ function randomXForLane(size: number, width: number) {
   return min + Math.random() * (max - min);
 }
 
+function randomSpeedForLane(lane: LaneConfig) {
+  return lane.minSpeed + Math.random() * (lane.maxSpeed - lane.minSpeed);
+}
+
 function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
   return lanes.map((lane, laneIndex) => ({
     id: laneIndex,
     laneIndex,
     x: randomXForLane(lane.size, width),
     dir: Math.random() < 0.5 ? 1 : -1,
+    speed: randomSpeedForLane(lane),
     hitAt: null,
   }));
 }
@@ -104,11 +131,13 @@ export default function GameScreen() {
       targetsRef.current = targetsRef.current.map((t) => {
         if (t.hitAt !== null) {
           if (now - t.hitAt > RESPAWN_DELAY_MS) {
+            const lane = lanes[t.laneIndex];
             return {
               ...t,
               hitAt: null,
-              x: randomXForLane(lanes[t.laneIndex].size, width),
+              x: randomXForLane(lane.size, width),
               dir: Math.random() < 0.5 ? 1 : -1,
+              speed: randomSpeedForLane(lane),
             };
           }
           return t;
@@ -116,21 +145,25 @@ export default function GameScreen() {
         const lane = lanes[t.laneIndex];
         const min = lane.size / 2;
         const max = width - lane.size / 2;
-        let nextX = t.x + t.dir * lane.speed * dt;
+        let nextX = t.x + t.dir * t.speed * dt;
         let nextDir = t.dir;
+        let nextSpeed = t.speed;
         if (nextX < min) {
           nextX = min;
           nextDir = 1;
+          nextSpeed = randomSpeedForLane(lane);
         } else if (nextX > max) {
           nextX = max;
           nextDir = -1;
+          nextSpeed = randomSpeedForLane(lane);
         }
-        return { ...t, x: nextX, dir: nextDir };
+        return { ...t, x: nextX, dir: nextDir, speed: nextSpeed };
       });
 
-      // Bullets: move up, drop once off-screen.
+      // Bullets: move up, drop once off-screen. Speed ramps with level too.
+      const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current);
       bulletsRef.current = bulletsRef.current
-        .map((b) => ({ ...b, y: b.y - BULLET_SPEED * dt }))
+        .map((b) => ({ ...b, y: b.y - bulletSpeed * dt }))
         .filter((b) => b.y > -20);
 
       // Collisions: a live bullet entering a lane's hit band near a live target.
