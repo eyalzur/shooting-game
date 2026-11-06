@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Player from '../components/Player';
@@ -99,7 +100,9 @@ interface Props {
 
 export default function GameScreen({ onExit }: Props) {
   const { width, height } = useWindowDimensions();
-  const playAreaHeight = height - TOP_BAR_HEIGHT;
+  const insets = useSafeAreaInsets();
+  const topBarHeight = TOP_BAR_HEIGHT + insets.top;
+  const playAreaHeight = height - topBarHeight;
   const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
 
   const idCounterRef = useRef(LANES.length);
@@ -324,7 +327,7 @@ export default function GameScreen({ onExit }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { height: topBarHeight, paddingTop: insets.top }]}>
         <Pressable onPress={() => onExit(scoreRef.current)} style={styles.homeButton}>
           <Text style={styles.homeButtonText}>⟵ HOME</Text>
         </Pressable>

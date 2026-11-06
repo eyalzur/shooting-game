@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import GameScreen from './src/screens/GameScreen';
@@ -30,13 +31,15 @@ export default function App() {
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      {phase === 'splash' && <SplashScreen />}
-      {phase === 'home' && (
-        <HomeScreen bestScore={bestScore} lastScore={lastScore} onStart={() => setPhase('playing')} />
-      )}
-      {phase === 'playing' && <GameScreen onExit={handleExit} />}
-      <StatusBar style="light" />
-    </View>
+    <SafeAreaProvider>
+      <View style={{ flex: 1 }}>
+        {phase === 'splash' && <SplashScreen />}
+        {phase === 'home' && (
+          <HomeScreen bestScore={bestScore} lastScore={lastScore} onStart={() => setPhase('playing')} />
+        )}
+        {phase === 'playing' && <GameScreen onExit={handleExit} />}
+        <StatusBar style="light" />
+      </View>
+    </SafeAreaProvider>
   );
 }
