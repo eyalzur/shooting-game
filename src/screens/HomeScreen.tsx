@@ -71,6 +71,17 @@ export default function HomeScreen({
 
       <PressableScale
         onPress={() => {
+          playUiTap();
+          onOpenChangelog();
+        }}
+        style={styles.versionButton}
+        scaleTo={0.9}
+      >
+        <Text style={styles.versionButtonText}>📜 v{APP_VERSION}</Text>
+      </PressableScale>
+
+      <PressableScale
+        onPress={() => {
           onToggleSound();
           if (!soundOn) playUiTap();
         }}
@@ -81,17 +92,6 @@ export default function HomeScreen({
 
       <Text style={styles.title}>{GAME_NAME}</Text>
       <Text style={styles.subtitle}>Take aim. Hold your ground.</Text>
-
-      <PressableScale
-        onPress={() => {
-          playUiTap();
-          onOpenChangelog();
-        }}
-        style={styles.versionTag}
-        scaleTo={0.9}
-      >
-        <Text style={styles.versionTagText}>v{APP_VERSION} · WHAT'S NEW</Text>
-      </PressableScale>
 
       <View style={styles.scoreBoard}>
         <View style={styles.scoreBlock}>
@@ -253,23 +253,27 @@ const styles = StyleSheet.create({
     marginTop: 8,
     letterSpacing: 0.5,
   },
-  versionTag: {
-    marginTop: 10,
-    paddingVertical: 4,
+  versionButton: {
+    position: 'absolute',
+    top: 54,
+    left: 20,
+    paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: 'rgba(90,216,255,0.1)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  versionTagText: {
+  versionButtonText: {
     color: COLORS.cyan,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.5,
   },
   scoreBoard: {
     flexDirection: 'row',
     gap: 36,
-    marginTop: 30,
+    marginTop: 44,
     marginBottom: 44,
   },
   scoreBlock: {
