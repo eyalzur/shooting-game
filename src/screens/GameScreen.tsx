@@ -16,6 +16,10 @@ import {
   DIFFICULTY_SIZE_STEP,
   DIFFICULTY_SPEED_STEP,
   DIFFICULTY_STEP_HITS,
+  FIRE_MAX_CHARGES,
+  FIRE_RECHARGE_MIN_MS,
+  FIRE_RECHARGE_MS,
+  FIRE_RECHARGE_STEP,
   HIT_BAND,
   LANES,
   MAX_BULLETS,
@@ -56,6 +60,10 @@ function getEffectiveBulletSpeed(level: number) {
   return BULLET_SPEED * mul;
 }
 
+function getEffectiveRechargeMs(level: number) {
+  return Math.max(FIRE_RECHARGE_MIN_MS, FIRE_RECHARGE_MS * (1 - level * FIRE_RECHARGE_STEP));
+}
+
 function randomXForLane(size: number, width: number) {
   const min = size / 2;
   const max = width - size / 2;
@@ -93,12 +101,14 @@ export default function GameScreen() {
   const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
+  const chargesRef = useRef(FIRE_MAX_CHARGES);
 
   const [playerX, setPlayerX] = useState(playerXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [score, setScore] = useState(0);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
+  const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
   const levelUpIdRef = useRef(0);
 
@@ -208,9 +218,17 @@ export default function GameScreen() {
         }
       }
 
+      // Recharge fire charges over time; speeds up with level.
+      const rechargeMs = getEffectiveRechargeMs(difficultyLevelRef.current);
+      chargesRef.current = Math.min(
+        FIRE_MAX_CHARGES,
+        chargesRef.current + dt / (rechargeMs / 1000)
+      );
+
       setTargets(targetsRef.current);
       setBullets(bulletsRef.current);
       setScore(scoreRef.current);
+      setCharges(chargesRef.current);
 
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -222,7 +240,10 @@ export default function GameScreen() {
   }, [width, playAreaHeight]);
 
   const fire = () => {
+    if (chargesRef.current < 1) return;
     if (bulletsRef.current.length >= MAX_BULLETS) return;
+    chargesRef.current -= 1;
+    setCharges(chargesRef.current);
     bulletsRef.current = [
       ...bulletsRef.current,
       {
@@ -291,6 +312,17 @@ export default function GameScreen() {
         <Text style={styles.scoreLabel}>SCORE</Text>
         <Text style={styles.scoreText}>{score}</Text>
         <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+        <View style={styles.chargeRow}>
+          {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
+            <View
+              key={i}
+              style={[
+                styles.chargePip,
+                { opacity: Math.max(0.18, Math.min(1, charges - i)) },
+              ]}
+            />
+          ))}
+        </View>
       </View>
 
       <View
@@ -344,6 +376,21 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.cyan,
     textShadowRadius: 12,
     textShadowOffset: { width: 0, height: 0 },
+  },
+  chargeRow: {
+    flexDirection: 'row',
+    gap: 5,
+    marginLeft: 16,
+  },
+  chargePip: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.cyan,
+    shadowColor: COLORS.cyan,
+    shadowOpacity: 1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
   },
   playArea: {
     backgroundColor: COLORS.background,

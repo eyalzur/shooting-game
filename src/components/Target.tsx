@@ -1,4 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
+import { STAR_SPIN_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 
 interface Props {
@@ -9,7 +11,24 @@ interface Props {
 
 export default function Target({ target, lane, laneY }: Props) {
   const isHit = target.hitAt !== null;
-  const glowSize = lane.size * 1.7;
+  const glowSize = lane.size * 1.9;
+  const spin = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: STAR_SPIN_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const rotateBack = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] });
 
   return (
     <View
@@ -37,6 +56,24 @@ export default function Target({ target, lane, laneY }: Props) {
           },
         ]}
       />
+      <Animated.View
+        style={[
+          styles.spikeSet,
+          { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ rotate }] },
+        ]}
+      >
+        <View style={[styles.spike, styles.spikeV, { backgroundColor: lane.color }]} />
+        <View style={[styles.spike, styles.spikeH, { backgroundColor: lane.color }]} />
+      </Animated.View>
+      <Animated.View
+        style={[
+          styles.spikeSet,
+          { width: lane.size * 1.3, height: lane.size * 1.3, transform: [{ rotate: rotateBack }] },
+        ]}
+      >
+        <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: lane.color }]} />
+        <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: lane.color }]} />
+      </Animated.View>
       <View
         style={[
           styles.core,
@@ -56,10 +93,38 @@ export default function Target({ target, lane, laneY }: Props) {
 const styles = StyleSheet.create({
   glow: {
     position: 'absolute',
-    opacity: 0.25,
+    opacity: 0.22,
     shadowOpacity: 1,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 0 },
+  },
+  spikeSet: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spike: {
+    position: 'absolute',
+    opacity: 0.55,
+    borderRadius: 2,
+  },
+  spikeV: {
+    width: 3,
+    height: '100%',
+  },
+  spikeH: {
+    width: '100%',
+    height: 3,
+  },
+  spikeDiagA: {
+    width: 2,
+    height: '100%',
+    transform: [{ rotate: '45deg' }],
+  },
+  spikeDiagB: {
+    width: 2,
+    height: '100%',
+    transform: [{ rotate: '-45deg' }],
   },
   core: {
     shadowOpacity: 0.9,

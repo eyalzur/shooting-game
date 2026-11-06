@@ -65,6 +65,19 @@ export const HIT_BAND = 26; // px tolerance around a lane's y for collision
 export const RESPAWN_DELAY_MS = 450;
 export const HIT_FLASH_MS = 180;
 
+// Targets are spinning stars; one spike layer per direction so it doesn't
+// read as a flat clock hand.
+export const STAR_SPIN_MS = 4200;
+
+// Fire cooldown: the player has a small pool of charges, each shot spends
+// one, and charges regen over time — so taps burst a few shots then wait,
+// instead of spamming freely. Recharge speeds up with level, making it an
+// upgradeable stat (groundwork for multiplayer loadouts later).
+export const FIRE_MAX_CHARGES = 3;
+export const FIRE_RECHARGE_MS = 650; // ms per charge at level 0
+export const FIRE_RECHARGE_MIN_MS = 220; // fastest recharge, at max level
+export const FIRE_RECHARGE_STEP = 0.045; // -4.5% recharge time per level
+
 // A touch counts as "fire" only if it barely moved and was quick, so a
 // swipe-to-move gesture never also fires a shot.
 export const TAP_MAX_DISTANCE = 18; // px
