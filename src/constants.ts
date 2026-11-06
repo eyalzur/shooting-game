@@ -42,15 +42,20 @@ export const DIFFICULTY_MIN_SIZE_MULTIPLIER = 0.4;
 export const BULLET_SPEED_STEP = 0.04; // +4% bullet speed per level
 export const BULLET_SPEED_MAX_MULTIPLIER = 1.8;
 
-// Background theme cycles through these every few levels so leveling up
-// visibly changes the scene, not just the numbers.
+// Background theme changes every level so leveling up visibly changes the
+// scene, not just the numbers. Nebula positions/sizes also drift per theme
+// (see Starfield), so it's not just a recolor each time.
 export const LEVEL_THEMES = [
   { nebula: ['#8a5cff', '#ff5cb3', '#5ad8ff'], moon: '#d8d2ff' },
   { nebula: ['#ff5cb3', '#ff9c5a', '#5ad8ff'], moon: '#ffd8c2' },
   { nebula: ['#5ad8ff', '#5affb0', '#8a5cff'], moon: '#c2fff0' },
   { nebula: ['#ff5a5a', '#ff5cb3', '#ffd25a'], moon: '#ffd2d2' },
+  { nebula: ['#5affb0', '#5ad8ff', '#ff5cb3'], moon: '#c2ffd8' },
+  { nebula: ['#ff9c5a', '#8a5cff', '#5affb0'], moon: '#ffe0c2' },
+  { nebula: ['#5ad8ff', '#ffd25a', '#ff5a5a'], moon: '#c2e8ff' },
+  { nebula: ['#ff5cb3', '#5affb0', '#ffd25a'], moon: '#ffd2ec' },
 ];
-export const LEVELS_PER_THEME = 3;
+export const LEVELS_PER_THEME = 1;
 
 export const PLAYER_SIZE = 56;
 export const PLAYER_SPEED = 260; // px/sec
@@ -68,6 +73,8 @@ export const RESPAWN_MIN_MS = 500;
 export const RESPAWN_MAX_MS = 1300;
 export const HIT_FLASH_MS = 180;
 export const EXPLOSION_MS = 420;
+// How long a "+N" score popup floats up and fades before it's removed.
+export const SCORE_POPUP_MS = 900;
 
 // Targets are spinning stars; rotation is driven by the main game loop
 // (TargetState.spin), not a standalone Animated loop, so it can never

@@ -34,30 +34,35 @@ function makeStars(width: number, height: number, count: number): Star[] {
   }));
 }
 
+// Deterministic per-theme drift so each level's scene isn't just a recolor —
+// the nebula composition itself shifts a bit too.
+function getNebulaPositions(themeIdx: number, width: number, height: number): NebulaPos[] {
+  const driftX = Math.sin(themeIdx * 1.7) * width * 0.1;
+  const driftY = Math.cos(themeIdx * 1.3) * height * 0.07;
+  const sizeWobble = 1 + ((themeIdx * 37) % 10) * 0.012;
+  return [
+    { x: width * 0.15 + driftX, y: height * 0.15 + driftY, size: Math.max(width, 220) * sizeWobble },
+    { x: width * 0.85 - driftX, y: height * 0.55 + driftY * 0.5, size: Math.max(width, 260) / sizeWobble },
+    { x: width * 0.3 + driftY * 0.5, y: height * 0.85 - driftX * 0.4, size: Math.max(width, 200) * sizeWobble },
+  ];
+}
+
 export default function Starfield({ width, height, level = 0 }: Props) {
   const themeIndex = Math.floor(level / LEVELS_PER_THEME) % LEVEL_THEMES.length;
   const theme = LEVEL_THEMES[themeIndex];
   const moonSize = 64 + Math.min(level, 10) * 4;
 
   const stars = useMemo(() => makeStars(width, height, 70), [width, height]);
-  const nebulaPositions = useMemo<NebulaPos[]>(
-    () => [
-      { x: width * 0.15, y: height * 0.15, size: Math.max(width, 220) },
-      { x: width * 0.85, y: height * 0.55, size: Math.max(width, 260) },
-      { x: width * 0.3, y: height * 0.85, size: Math.max(width, 200) },
-    ],
-    [width, height]
-  );
 
   // Crossfade between themes instead of snapping, so leveling into a new
   // palette feels like a scene change rather than a flicker.
   const themeIndexRef = useRef(themeIndex);
   const fade = useRef(new Animated.Value(1)).current;
-  const [prevTheme, setPrevTheme] = useState<Theme | null>(null);
+  const [prevTheme, setPrevTheme] = useState<{ theme: Theme; idx: number } | null>(null);
 
   useEffect(() => {
     if (themeIndexRef.current === themeIndex) return;
-    setPrevTheme(LEVEL_THEMES[themeIndexRef.current]);
+    setPrevTheme({ theme: LEVEL_THEMES[themeIndexRef.current], idx: themeIndexRef.current });
     themeIndexRef.current = themeIndex;
     fade.setValue(0);
     Animated.timing(fade, {
@@ -71,9 +76,14 @@ export default function Starfield({ width, height, level = 0 }: Props) {
   const fadeIn = fade;
   const fadeOut = fade.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
 
-  const renderLayer = (t: Theme, opacity: Animated.AnimatedInterpolation<number> | number, key: string) => (
+  const renderLayer = (
+    t: Theme,
+    themeIdx: number,
+    opacity: Animated.AnimatedInterpolation<number> | number,
+    key: string
+  ) => (
     <Animated.View key={key} style={[StyleSheet.absoluteFill, { opacity }]} pointerEvents="none">
-      {nebulaPositions.map((p, i) => (
+      {getNebulaPositions(themeIdx, width, height).map((p, i) => (
         <View
           key={i}
           style={[
@@ -134,8 +144,8 @@ export default function Starfield({ width, height, level = 0 }: Props) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {prevTheme && renderLayer(prevTheme, fadeOut, 'prev')}
-      {renderLayer(theme, prevTheme ? fadeIn : 1, 'current')}
+      {prevTheme && renderLayer(prevTheme.theme, prevTheme.idx, fadeOut, 'prev')}
+      {renderLayer(theme, themeIndex, prevTheme ? fadeIn : 1, 'current')}
       {stars.map((s, i) => (
         <View
           key={i}

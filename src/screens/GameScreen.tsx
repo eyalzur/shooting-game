@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Player from '../components/Player';
+import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
@@ -28,11 +29,12 @@ import {
   PLAYER_SIZE,
   RESPAWN_MAX_MS,
   RESPAWN_MIN_MS,
+  SCORE_POPUP_MS,
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
 } from '../constants';
-import { BulletState, LaneConfig, TargetState } from '../types';
+import { BulletState, LaneConfig, ScorePopupState, TargetState } from '../types';
 
 const TOP_BAR_HEIGHT = 56;
 
@@ -109,7 +111,9 @@ export default function GameScreen({ onExit }: Props) {
   const playerXRef = useRef(width / 2);
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
+  const popupsRef = useRef<ScorePopupState[]>([]);
   const scoreRef = useRef(0);
+  const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
   const difficultyLevelRef = useRef(0);
   const emittedLevelRef = useRef(0);
@@ -121,11 +125,20 @@ export default function GameScreen({ onExit }: Props) {
   const [playerX, setPlayerX] = useState(playerXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
-  const [score, setScore] = useState(0);
+  const [popups, setPopups] = useState(popupsRef.current);
+  const [displayScore, setDisplayScore] = useState(0);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
   const levelUpIdRef = useRef(0);
+  const scorePulse = useRef(new Animated.Value(1)).current;
+  const triggerScorePulse = () => {
+    scorePulse.setValue(1);
+    Animated.sequence([
+      Animated.timing(scorePulse, { toValue: 1.4, duration: 110, useNativeDriver: true }),
+      Animated.spring(scorePulse, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+  };
 
   // difficultyLevelRef is the source of truth, advanced inside the game
   // loop; difficultyLevel state only mirrors it for rendering, so this must
@@ -210,6 +223,18 @@ export default function GameScreen({ onExit }: Props) {
             t.respawnDelay = randomRespawnDelay();
             scoreRef.current += lane.points;
             hitsRef.current += 1;
+            popupsRef.current = [
+              ...popupsRef.current,
+              {
+                id: ++idCounterRef.current,
+                x: t.x,
+                y: laneY,
+                value: lane.points,
+                color: lane.color,
+                createdAt: now,
+              },
+            ];
+            triggerScorePulse();
             hitSomething = true;
             break;
           }
@@ -244,9 +269,17 @@ export default function GameScreen({ onExit }: Props) {
         chargesRef.current + dt / (rechargeMs / 1000)
       );
 
+      // Score counts up toward its true value instead of jumping, and score
+      // popups expire after their float-up animation finishes.
+      const scoreDiff = scoreRef.current - displayScoreRef.current;
+      displayScoreRef.current =
+        Math.abs(scoreDiff) < 0.5 ? scoreRef.current : displayScoreRef.current + scoreDiff * Math.min(1, dt * 8);
+      popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
+
       setTargets(targetsRef.current);
       setBullets(bulletsRef.current);
-      setScore(scoreRef.current);
+      setPopups(popupsRef.current);
+      setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
       rafRef.current = requestAnimationFrame(tick);
@@ -333,7 +366,9 @@ export default function GameScreen({ onExit }: Props) {
         </Pressable>
         <View style={styles.statsRow}>
           <Text style={styles.scoreLabel}>SCORE</Text>
-          <Text style={styles.scoreText}>{score}</Text>
+          <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
+            {displayScore}
+          </Animated.Text>
           <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
           <View style={styles.chargeRow}>
             {Array.from({ length: FIRE_MAX_CHARGES }, (_, i) => (
@@ -359,6 +394,9 @@ export default function GameScreen({ onExit }: Props) {
         ))}
         {bullets.map((b) => (
           <Bullet key={b.id} bullet={b} />
+        ))}
+        {popups.map((p) => (
+          <ScorePopup key={p.id} popup={p} />
         ))}
         <Player x={playerX} y={playerY} />
         <LevelUpBanner event={levelUpEvent} />

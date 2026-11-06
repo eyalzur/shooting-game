@@ -31,3 +31,12 @@ export interface BulletState {
   x: number;
   y: number;
 }
+
+export interface ScorePopupState {
+  id: number;
+  x: number;
+  y: number;
+  value: number;
+  color: string;
+  createdAt: number;
+}
