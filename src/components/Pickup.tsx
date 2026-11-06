@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { COLORS, PICKUP_SIZE } from '../constants';
+import { COLORS, CURRENCY_ICON, PICKUP_SIZE } from '../constants';
 import { PickupState } from '../types';
 
 interface Props {
@@ -9,13 +9,20 @@ interface Props {
 const ICONS: Record<PickupState['kind'], string> = {
   score: '⭐',
   rapidFire: '⚡',
+  currency: CURRENCY_ICON,
+};
+
+const TINTS: Record<PickupState['kind'], string> = {
+  score: COLORS.gold,
+  rapidFire: COLORS.cyan,
+  currency: COLORS.purple,
 };
 
 // Falls from a broken target, position driven entirely by the game loop
 // (same plain left/top pattern as Bullet) — no animation of its own needed
 // beyond that fall.
 export default function Pickup({ pickup }: Props) {
-  const tint = pickup.kind === 'rapidFire' ? COLORS.cyan : COLORS.gold;
+  const tint = TINTS[pickup.kind];
   return (
     <View
       pointerEvents="none"

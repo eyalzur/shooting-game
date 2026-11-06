@@ -6,12 +6,22 @@ import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
-import { SPLASH_MIN_DURATION_MS } from './src/constants';
-import { getBestScore, getSoundEnabledPref, saveBestScore, saveSoundEnabledPref } from './src/utils/storage';
+import ShopScreen from './src/screens/ShopScreen';
+import { SHOP_DOUBLE_SHOT_PRICE, SPLASH_MIN_DURATION_MS } from './src/constants';
+import {
+  getBestScore,
+  getCurrency,
+  getOwnsDoubleShot,
+  getSoundEnabledPref,
+  saveBestScore,
+  saveCurrency,
+  saveOwnsDoubleShot,
+  saveSoundEnabledPref,
+} from './src/utils/storage';
 import { setSoundEnabled } from './src/utils/sound';
 import { BotConfig, GameMode } from './src/types';
 
-type Phase = 'splash' | 'home' | 'botSelect' | 'playing';
+type Phase = 'splash' | 'home' | 'botSelect' | 'playing' | 'shop';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('splash');
@@ -22,9 +32,13 @@ export default function App() {
   const [matchMs, setMatchMs] = useState<number | null>(null);
   const [runId, setRunId] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
+  const [currency, setCurrency] = useState(0);
+  const [ownsDoubleShot, setOwnsDoubleShot] = useState(false);
 
   useEffect(() => {
     setBestScore(getBestScore());
+    setCurrency(getCurrency());
+    setOwnsDoubleShot(getOwnsDoubleShot());
     const pref = getSoundEnabledPref();
     setSoundOn(pref);
     setSoundEnabled(pref);
@@ -37,6 +51,28 @@ export default function App() {
     setSoundOn(next);
     setSoundEnabled(next);
     saveSoundEnabledPref(next);
+  };
+
+  // Stardust is saved the instant it's earned (mid-match pickup or a vs
+  // win), not just at match end, so it's kept even if the player loses,
+  // quits mid-match, or closes the tab.
+  const earnCurrency = (amount: number) => {
+    setCurrency((prev) => {
+      const next = prev + amount;
+      saveCurrency(next);
+      return next;
+    });
+  };
+
+  const purchaseDoubleShot = () => {
+    setCurrency((prev) => {
+      if (ownsDoubleShot || prev < SHOP_DOUBLE_SHOT_PRICE) return prev;
+      const next = prev - SHOP_DOUBLE_SHOT_PRICE;
+      saveCurrency(next);
+      setOwnsDoubleShot(true);
+      saveOwnsDoubleShot(true);
+      return next;
+    });
   };
 
   const handleExit = (finalScore: number) => {
@@ -82,10 +118,21 @@ export default function App() {
             onStartVs={goToBotSelect}
             soundOn={soundOn}
             onToggleSound={toggleSound}
+            currency={currency}
+            onOpenShop={() => setPhase('shop')}
           />
         )}
         {phase === 'botSelect' && (
           <BotSelectScreen onSelect={selectBot} onBack={() => setPhase('home')} />
+        )}
+        {phase === 'shop' && (
+          <ShopScreen
+            currency={currency}
+            ownsDoubleShot={ownsDoubleShot}
+            price={SHOP_DOUBLE_SHOT_PRICE}
+            onPurchaseDoubleShot={purchaseDoubleShot}
+            onBack={() => setPhase('home')}
+          />
         )}
         {phase === 'playing' && (
           <GameScreen
@@ -97,6 +144,8 @@ export default function App() {
             onPlayAgain={playAgain}
             soundOn={soundOn}
             onToggleSound={toggleSound}
+            ownsDoubleShot={ownsDoubleShot}
+            onEarnCurrency={earnCurrency}
           />
         )}
         <StatusBar style="light" />

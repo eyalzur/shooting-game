@@ -39,3 +39,43 @@ export function saveSoundEnabledPref(on: boolean): void {
     // ignore — preference just won't persist this session
   }
 }
+
+// Stardust balance — earned mid-match or on a vs-bot win, kept regardless
+// of how the match ends.
+const CURRENCY_KEY = 'strafe-strike-currency';
+
+export function getCurrency(): number {
+  try {
+    const raw = window.localStorage.getItem(CURRENCY_KEY);
+    const n = raw ? parseInt(raw, 10) : 0;
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveCurrency(amount: number): void {
+  try {
+    window.localStorage.setItem(CURRENCY_KEY, String(amount));
+  } catch {
+    // ignore — balance just won't persist this session
+  }
+}
+
+const OWNS_DOUBLE_SHOT_KEY = 'strafe-strike-owns-double-shot';
+
+export function getOwnsDoubleShot(): boolean {
+  try {
+    return window.localStorage.getItem(OWNS_DOUBLE_SHOT_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+export function saveOwnsDoubleShot(owns: boolean): void {
+  try {
+    window.localStorage.setItem(OWNS_DOUBLE_SHOT_KEY, owns ? '1' : '0');
+  } catch {
+    // ignore — purchase just won't persist this session
+  }
+}

@@ -30,6 +30,9 @@ import {
   HIT_BAND,
   LANES,
   MAX_BULLETS,
+  PICKUP_CURRENCY_CHANCE,
+  PICKUP_CURRENCY_MAX,
+  PICKUP_CURRENCY_MIN,
   PICKUP_DROP_CHANCE,
   PICKUP_FALL_SPEED,
   PICKUP_RAPID_CHANCE,
@@ -48,6 +51,7 @@ import {
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
+  WIN_CURRENCY_REWARD,
 } from '../constants';
 import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState } from '../types';
 import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
@@ -167,6 +171,9 @@ interface Props {
   onPlayAgain?: () => void;
   soundOn: boolean;
   onToggleSound: () => void;
+  /** Permanent shop upgrade: every shot fires as a pair, same charge cost. */
+  ownsDoubleShot: boolean;
+  onEarnCurrency: (amount: number) => void;
 }
 
 export default function GameScreen({
@@ -177,6 +184,8 @@ export default function GameScreen({
   onPlayAgain,
   soundOn,
   onToggleSound,
+  ownsDoubleShot,
+  onEarnCurrency,
 }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -253,6 +262,7 @@ export default function GameScreen({
       playTimeUp();
     } else if (outcome === 'win') {
       playWin();
+      if (ENHANCEMENTS_ENABLED) onEarnCurrency(WIN_CURRENCY_REWARD);
     } else if (outcome === 'lose') {
       playLose();
     } else {
@@ -367,14 +377,23 @@ export default function GameScreen({
                   { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: t.isGolden ? COLORS.gold : COLORS.blue, createdAt: now },
                 ];
                 triggerScorePulse();
-                // A broken target sometimes drops something to catch —
-                // either a flat bonus or a few seconds of rapid fire.
+                // A broken target sometimes drops something to catch — a
+                // flat score bonus, a few seconds of rapid fire, or Stardust
+                // toward the shop.
                 if (ENHANCEMENTS_ENABLED && Math.random() < PICKUP_DROP_CHANCE) {
-                  const kind: PickupKind = Math.random() < PICKUP_RAPID_CHANCE ? 'rapidFire' : 'score';
+                  const roll = Math.random();
+                  const kind: PickupKind =
+                    roll < PICKUP_CURRENCY_CHANCE
+                      ? 'currency'
+                      : roll < PICKUP_CURRENCY_CHANCE + PICKUP_RAPID_CHANCE
+                        ? 'rapidFire'
+                        : 'score';
                   const value =
                     kind === 'score'
                       ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
-                      : 0;
+                      : kind === 'currency'
+                        ? Math.round(PICKUP_CURRENCY_MIN + Math.random() * (PICKUP_CURRENCY_MAX - PICKUP_CURRENCY_MIN))
+                        : 0;
                   pickupsRef.current = [...pickupsRef.current, { id: ++idCounterRef.current, x: t.x, y: laneY, kind, value }];
                 }
               } else if (bot) {
@@ -412,6 +431,12 @@ export default function GameScreen({
                 { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.gold, createdAt: now },
               ];
               triggerScorePulse();
+            } else if (p.kind === 'currency') {
+              onEarnCurrency(p.value);
+              popupsRef.current = [
+                ...popupsRef.current,
+                { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
+              ];
             } else {
               rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
             }
@@ -538,7 +563,7 @@ export default function GameScreen({
     setCharges(chargesRef.current);
     // Rapid-fire pickup: one charge now fires a pair of bullets side by
     // side instead of one, same cost — the "double shots" bonus.
-    const rapid = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > Date.now();
+    const rapid = ENHANCEMENTS_ENABLED && (ownsDoubleShot || rapidFireUntilRef.current > Date.now());
     const offsets = rapid ? [-10, 10] : [0];
     bulletsRef.current = [
       ...bulletsRef.current,
@@ -693,8 +718,12 @@ export default function GameScreen({
               />
             ))}
           </View>
-          {rapidFireMsLeft > 0 && (
-            <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
+          {ownsDoubleShot ? (
+            <Text style={styles.rapidBadge}>⚡×2</Text>
+          ) : (
+            rapidFireMsLeft > 0 && (
+              <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
+            )
           )}
         </View>
       </View>

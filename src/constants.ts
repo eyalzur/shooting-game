@@ -145,11 +145,23 @@ export const ENHANCEMENTS_ENABLED = true;
 export const GOLDEN_STAR_CHANCE = 0.15;
 export const GOLDEN_SCORE_MULTIPLIER = 2;
 export const PICKUP_DROP_CHANCE = 0.3;
-// Of the pickups that do drop, this fraction are the rapid-fire power-up;
-// the rest are flat bonus score.
-export const PICKUP_RAPID_CHANCE = 0.4;
+// Of the pickups that do drop, these two chances decide the kind — the
+// remaining share is a flat score bonus.
+export const PICKUP_CURRENCY_CHANCE = 0.35;
+export const PICKUP_RAPID_CHANCE = 0.25;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
 export const PICKUP_SCORE_MAX = 25;
 export const PICKUP_RAPID_DURATION_MS = 7000;
+export const PICKUP_CURRENCY_MIN = 5;
+export const PICKUP_CURRENCY_MAX = 15;
+
+// Stardust: the shop currency. Earned mid-match from currency pickups, and
+// as a reward for winning a vs-bot match — kept permanently either way,
+// through a loss, a tab close, whatever.
+export const CURRENCY_NAME = 'Stardust';
+export const CURRENCY_ICON = '✨';
+export const WIN_CURRENCY_REWARD = 25;
+
+export const SHOP_DOUBLE_SHOT_PRICE = 150;

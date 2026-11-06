@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Starfield from '../components/Starfield';
-import { COLORS, DURATION_OPTIONS, GAME_NAME } from '../constants';
+import { COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
 import { playUiTap } from '../utils/sound';
 
 interface Props {
@@ -11,6 +11,8 @@ interface Props {
   onStartVs: (matchMs: number | null) => void;
   soundOn: boolean;
   onToggleSound: () => void;
+  currency: number;
+  onOpenShop: () => void;
 }
 
 function MenuButton({
@@ -19,7 +21,7 @@ function MenuButton({
   onPress,
 }: {
   label: string;
-  variant: 'primary' | 'secondary';
+  variant: 'primary' | 'secondary' | 'tertiary';
   onPress: () => void;
 }) {
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -34,10 +36,17 @@ function MenuButton({
         style={[
           styles.button,
           variant === 'secondary' && styles.buttonSecondary,
+          variant === 'tertiary' && styles.buttonTertiary,
           { transform: [{ scale: pressScale }] },
         ]}
       >
-        <Text style={[styles.buttonLabel, variant === 'secondary' && styles.buttonLabelSecondary]}>
+        <Text
+          style={[
+            styles.buttonLabel,
+            variant === 'secondary' && styles.buttonLabelSecondary,
+            variant === 'tertiary' && styles.buttonLabelTertiary,
+          ]}
+        >
           {label}
         </Text>
       </Animated.View>
@@ -45,7 +54,16 @@ function MenuButton({
   );
 }
 
-export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartVs, soundOn, onToggleSound }: Props) {
+export default function HomeScreen({
+  bestScore,
+  lastScore,
+  onStartSolo,
+  onStartVs,
+  soundOn,
+  onToggleSound,
+  currency,
+  onOpenShop,
+}: Props) {
   const { width, height } = useWindowDimensions();
   const [matchMs, setMatchMs] = useState<number | null>(DURATION_OPTIONS[1].ms);
 
@@ -61,6 +79,18 @@ export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartV
         style={styles.soundButton}
       >
         <Text style={styles.soundButtonText}>{soundOn ? '🔊 SOUND' : '🔇 MUTED'}</Text>
+      </Pressable>
+
+      <Pressable
+        onPress={() => {
+          playUiTap();
+          onOpenShop();
+        }}
+        style={styles.currencyButton}
+      >
+        <Text style={styles.currencyButtonText}>
+          {CURRENCY_ICON} {currency}
+        </Text>
       </Pressable>
 
       <Text style={styles.title}>{GAME_NAME}</Text>
@@ -109,6 +139,14 @@ export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartV
             onStartVs(matchMs);
           }}
         />
+        <MenuButton
+          label={`SHOP ${CURRENCY_ICON}`}
+          variant="tertiary"
+          onPress={() => {
+            playUiTap();
+            onOpenShop();
+          }}
+        />
       </View>
     </View>
   );
@@ -139,6 +177,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  currencyButton: {
+    position: 'absolute',
+    top: 54,
+    left: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(138,92,255,0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  currencyButtonText: {
+    color: COLORS.textPrimary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   title: {
     color: COLORS.textPrimary,
@@ -238,6 +293,13 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pink,
     shadowColor: COLORS.pink,
   },
+  buttonTertiary: {
+    paddingVertical: 12,
+    backgroundColor: 'rgba(138,92,255,0.1)',
+    borderColor: COLORS.purple,
+    shadowColor: COLORS.purple,
+    shadowOpacity: 0.5,
+  },
   buttonLabel: {
     color: COLORS.textPrimary,
     fontSize: 18,
@@ -250,5 +312,9 @@ const styles = StyleSheet.create({
   buttonLabelSecondary: {
     fontSize: 15,
     textShadowColor: COLORS.pink,
+  },
+  buttonLabelTertiary: {
+    fontSize: 13,
+    textShadowColor: COLORS.purple,
   },
 });

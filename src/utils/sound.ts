@@ -128,12 +128,20 @@ export function playGolden() {
   [784, 988, 1175].forEach((f, i) => tone(f, { duration: 0.12, type: 'triangle', gainPeak: 0.12, delay: i * 0.05 }));
 }
 
-export function playPickup(kind: 'score' | 'rapidFire') {
+export function playPickup(kind: 'score' | 'rapidFire' | 'currency') {
   if (kind === 'rapidFire') {
     [660, 990, 1320].forEach((f, i) => tone(f, { duration: 0.08, type: 'square', gainPeak: 0.1, delay: i * 0.04 }));
+  } else if (kind === 'currency') {
+    [1175, 1568].forEach((f, i) => tone(f, { duration: 0.1, type: 'sine', gainPeak: 0.1, delay: i * 0.05 }));
   } else {
     tone(1046, { duration: 0.14, type: 'sine', gainPeak: 0.12, freqEnd: 1568 });
   }
+}
+
+// A shop purchase — a little richer than a UI tap, confirms the spend went
+// through.
+export function playPurchase() {
+  [659, 988, 1319].forEach((f, i) => tone(f, { duration: 0.1, type: 'triangle', gainPeak: 0.13, delay: i * 0.06 }));
 }
 
 export function playLevelUp() {

@@ -34,7 +34,7 @@ export interface TargetState {
   isGolden: boolean;
 }
 
-export type PickupKind = 'score' | 'rapidFire';
+export type PickupKind = 'score' | 'rapidFire' | 'currency';
 
 /** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
 export interface PickupState {
@@ -42,7 +42,7 @@ export interface PickupState {
   x: number;
   y: number;
   kind: PickupKind;
-  /** Bonus score for a 'score' pickup; unused for 'rapidFire'. */
+  /** Bonus score for 'score', Stardust amount for 'currency'; unused for 'rapidFire'. */
   value: number;
 }
 
