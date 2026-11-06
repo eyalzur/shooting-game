@@ -480,13 +480,18 @@ export default function GameScreen({
     playShoot();
   };
 
-  // Swipe left/right anywhere on screen to move the player; a quick tap that
-  // barely moves fires on release — and only on release, never mid-gesture.
-  // Distances are measured from raw touch coordinates (not PanResponder's
-  // own gestureState.dx/dy), which reports unreliably on some mobile
-  // browsers and was causing swipes to misfire as taps.
+  // Touch anywhere and the cannon jumps straight under your finger (same
+  // column), then tracks it while you drag — direct positional control,
+  // not a relative swipe. A quick tap that barely moves fires on release —
+  // and only on release, never mid-gesture. Distances are measured from
+  // raw touch coordinates (not PanResponder's own gestureState.dx/dy),
+  // which reports unreliably on some mobile browsers and was causing
+  // drags to misfire as taps.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
-  const dragBaseXRef = useRef(0);
+  const moveTo = (pageX: number) => {
+    playerXRef.current = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
+    setPlayerX(playerXRef.current);
+  };
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -498,18 +503,10 @@ export default function GameScreen({
           y: evt.nativeEvent.pageY,
           t: Date.now(),
         };
-        dragBaseXRef.current = playerXRef.current;
+        moveTo(evt.nativeEvent.pageX);
       },
       onPanResponderMove: (evt) => {
-        const start = touchStartRef.current;
-        if (!start) return;
-        const dx = evt.nativeEvent.pageX - start.x;
-        const next = dragBaseXRef.current + dx;
-        playerXRef.current = Math.min(
-          Math.max(next, PLAYER_SIZE / 2),
-          width - PLAYER_SIZE / 2
-        );
-        setPlayerX(playerXRef.current);
+        moveTo(evt.nativeEvent.pageX);
       },
       onPanResponderRelease: (evt) => {
         const start = touchStartRef.current;
