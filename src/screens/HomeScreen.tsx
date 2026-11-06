@@ -2,12 +2,15 @@ import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Starfield from '../components/Starfield';
 import { COLORS, DURATION_OPTIONS, GAME_NAME } from '../constants';
+import { playUiTap } from '../utils/sound';
 
 interface Props {
   bestScore: number;
   lastScore: number | null;
   onStartSolo: (matchMs: number | null) => void;
   onStartVs: (matchMs: number | null) => void;
+  soundOn: boolean;
+  onToggleSound: () => void;
 }
 
 function MenuButton({
@@ -42,13 +45,23 @@ function MenuButton({
   );
 }
 
-export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartVs }: Props) {
+export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartVs, soundOn, onToggleSound }: Props) {
   const { width, height } = useWindowDimensions();
   const [matchMs, setMatchMs] = useState<number | null>(DURATION_OPTIONS[1].ms);
 
   return (
     <View style={[styles.container, { width, height }]}>
       <Starfield width={width} height={height} level={0} />
+
+      <Pressable
+        onPress={() => {
+          onToggleSound();
+          if (!soundOn) playUiTap();
+        }}
+        style={styles.soundButton}
+      >
+        <Text style={styles.soundButtonText}>{soundOn ? '🔊 SOUND' : '🔇 MUTED'}</Text>
+      </Pressable>
 
       <Text style={styles.title}>{GAME_NAME}</Text>
       <Text style={styles.subtitle}>Take aim. Hold your ground.</Text>
@@ -80,8 +93,22 @@ export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartV
       </View>
 
       <View style={styles.buttonStack}>
-        <MenuButton label="SINGLE PLAYER" variant="primary" onPress={() => onStartSolo(matchMs)} />
-        <MenuButton label="VS ROBO PLAYER" variant="secondary" onPress={() => onStartVs(matchMs)} />
+        <MenuButton
+          label="SINGLE PLAYER"
+          variant="primary"
+          onPress={() => {
+            playUiTap();
+            onStartSolo(matchMs);
+          }}
+        />
+        <MenuButton
+          label="VS ROBO PLAYER"
+          variant="secondary"
+          onPress={() => {
+            playUiTap();
+            onStartVs(matchMs);
+          }}
+        />
       </View>
     </View>
   );
@@ -95,6 +122,23 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  soundButton: {
+    position: 'absolute',
+    top: 54,
+    right: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: 'rgba(138,92,255,0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  soundButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   title: {
     color: COLORS.textPrimary,

@@ -20,3 +20,22 @@ export function saveBestScore(score: number): void {
     // ignore — best score just won't persist this session
   }
 }
+
+const SOUND_ENABLED_KEY = 'strafe-strike-sound-enabled';
+
+export function getSoundEnabledPref(): boolean {
+  try {
+    const raw = window.localStorage.getItem(SOUND_ENABLED_KEY);
+    return raw === null ? true : raw === '1';
+  } catch {
+    return true;
+  }
+}
+
+export function saveSoundEnabledPref(on: boolean): void {
+  try {
+    window.localStorage.setItem(SOUND_ENABLED_KEY, on ? '1' : '0');
+  } catch {
+    // ignore — preference just won't persist this session
+  }
+}

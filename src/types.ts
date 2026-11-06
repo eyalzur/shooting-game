@@ -28,6 +28,8 @@ export interface TargetState {
   hitColor: string | null;
   /** Bumped every time the target bounces off a side wall, so a component can watch it and flash. */
   bounceId: number;
+  /** Which explosion animation plays on this hit — rolled fresh each time, for variety. */
+  explosionVariant: number;
 }
 
 export interface BulletState {

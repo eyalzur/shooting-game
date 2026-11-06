@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { BOUNCE_FLASH_MS, EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
+import { playBounce } from '../utils/sound';
 
 interface Props {
   target: TargetState;
@@ -10,6 +11,8 @@ interface Props {
 }
 
 const SPARK_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
+const SHATTER_ANGLES_DEG = [10, 55, 95, 140, 180, 220, 265, 310];
+const IMPLODE_ANGLES_DEG = [30, 100, 170, 230, 300];
 
 export default function Target({ target, lane, laneY }: Props) {
   const isHit = target.hitAt !== null;
@@ -18,10 +21,13 @@ export default function Target({ target, lane, laneY }: Props) {
   // red bot), not the target's own lane color — that's the whole point:
   // it reads as "who scored this" at a glance.
   const explosionColor = target.hitColor ?? lane.color;
+  const variant = target.explosionVariant % 3;
 
-  // One-shot explosion burst, triggered on the instant a hit lands. It's a
-  // finite animation (not a loop), so it can't drift or stall the way an
-  // always-running per-target loop could.
+  // One-shot explosion, triggered on the instant a hit lands. It's a finite
+  // animation (not a loop), so it can't drift or stall the way an
+  // always-running per-target loop could. Which shape it plays (burst,
+  // shatter, implode) is picked per-hit for variety, but all three ride the
+  // same single timeline.
   const explode = useRef(new Animated.Value(0)).current;
   const prevHitAt = useRef<number | null>(null);
   useEffect(() => {
@@ -51,6 +57,7 @@ export default function Target({ target, lane, laneY }: Props) {
         easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }).start();
+      playBounce();
     }
     prevBounceId.current = target.bounceId;
   }, [target.bounceId, bounce]);
@@ -61,13 +68,30 @@ export default function Target({ target, lane, laneY }: Props) {
   const rotate = `${target.spin * 360}deg`;
   const rotateBack = `${-target.spin * 360}deg`;
 
-  const sparkOpacity = explode.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] });
-  const coreOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const coreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
-  const ringScale = explode.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] });
-  const ringOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] });
   const bouncePop = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
   const bounceFlashOpacity = bounce;
+
+  // Variant 0 — Burst: ring expands outward, round sparks fly out, core
+  // blooms and fades.
+  const burstSparkOpacity = explode.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] });
+  const burstCoreOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const burstCoreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] });
+  const burstRingScale = explode.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] });
+  const burstRingOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] });
+
+  // Variant 1 — Shatter: the star cracks into little spinning shards instead
+  // of a round burst; the core crumbles away fast rather than blooming.
+  const shatterCoreOpacity = explode.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 0.5, 0] });
+  const shatterCoreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] });
+  const shardOpacity = explode.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 1, 1, 0] });
+
+  // Variant 2 — Implode: everything collapses inward and winks out, instead
+  // of flying apart.
+  const implodeRingScale = explode.interpolate({ inputRange: [0, 1], outputRange: [2.4, 0.15] });
+  const implodeRingOpacity = explode.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.9, 0.5, 0] });
+  const implodeCoreScale = explode.interpolate({ inputRange: [0, 0.6, 1], outputRange: [1, 0.55, 0] });
+  const implodeCoreOpacity = explode.interpolate({ inputRange: [0, 0.75, 1], outputRange: [1, 0.85, 0] });
+  const implodeDotOpacity = explode.interpolate({ inputRange: [0, 0.65, 1], outputRange: [1, 1, 0] });
 
   return (
     <View
@@ -81,7 +105,7 @@ export default function Target({ target, lane, laneY }: Props) {
         justifyContent: 'center',
       }}
     >
-      {isHit && (
+      {isHit && variant === 0 && (
         <>
           <Animated.View
             style={[
@@ -91,22 +115,16 @@ export default function Target({ target, lane, laneY }: Props) {
                 height: glowSize,
                 borderRadius: glowSize / 2,
                 borderColor: explosionColor,
-                opacity: ringOpacity,
-                transform: [{ scale: ringScale }],
+                opacity: burstRingOpacity,
+                transform: [{ scale: burstRingScale }],
               },
             ]}
           />
           {SPARK_ANGLES_DEG.map((angle) => {
             const rad = (angle * Math.PI) / 180;
             const dist = glowSize * 0.7;
-            const translateX = explode.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, Math.cos(rad) * dist],
-            });
-            const translateY = explode.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, Math.sin(rad) * dist],
-            });
+            const translateX = explode.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(rad) * dist] });
+            const translateY = explode.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(rad) * dist] });
             return (
               <Animated.View
                 key={angle}
@@ -115,7 +133,72 @@ export default function Target({ target, lane, laneY }: Props) {
                   {
                     backgroundColor: explosionColor,
                     shadowColor: explosionColor,
-                    opacity: sparkOpacity,
+                    opacity: burstSparkOpacity,
+                    transform: [{ translateX }, { translateY }],
+                  },
+                ]}
+              />
+            );
+          })}
+        </>
+      )}
+
+      {isHit && variant === 1 &&
+        SHATTER_ANGLES_DEG.map((angle, i) => {
+          const rad = (angle * Math.PI) / 180;
+          const dist = glowSize * 0.85;
+          const translateX = explode.interpolate({ inputRange: [0, 1], outputRange: [0, Math.cos(rad) * dist] });
+          const translateY = explode.interpolate({ inputRange: [0, 1], outputRange: [0, Math.sin(rad) * dist] });
+          const spin = explode.interpolate({
+            inputRange: [0, 1],
+            outputRange: [`${angle}deg`, `${angle + (i % 2 === 0 ? 540 : -540)}deg`],
+          });
+          return (
+            <Animated.View
+              key={angle}
+              style={[
+                styles.shard,
+                {
+                  height: 6 + (i % 3) * 3,
+                  backgroundColor: explosionColor,
+                  shadowColor: explosionColor,
+                  opacity: shardOpacity,
+                  transform: [{ translateX }, { translateY }, { rotate: spin }],
+                },
+              ]}
+            />
+          );
+        })}
+
+      {isHit && variant === 2 && (
+        <>
+          <Animated.View
+            style={[
+              styles.ring,
+              {
+                width: glowSize,
+                height: glowSize,
+                borderRadius: glowSize / 2,
+                borderColor: explosionColor,
+                opacity: implodeRingOpacity,
+                transform: [{ scale: implodeRingScale }],
+              },
+            ]}
+          />
+          {IMPLODE_ANGLES_DEG.map((angle) => {
+            const rad = (angle * Math.PI) / 180;
+            const dist = glowSize * 0.75;
+            const translateX = explode.interpolate({ inputRange: [0, 1], outputRange: [Math.cos(rad) * dist, 0] });
+            const translateY = explode.interpolate({ inputRange: [0, 1], outputRange: [Math.sin(rad) * dist, 0] });
+            return (
+              <Animated.View
+                key={angle}
+                style={[
+                  styles.spark,
+                  {
+                    backgroundColor: explosionColor,
+                    shadowColor: explosionColor,
+                    opacity: implodeDotOpacity,
                     transform: [{ translateX }, { translateY }],
                   },
                 ]}
@@ -169,8 +252,18 @@ export default function Target({ target, lane, laneY }: Props) {
             borderRadius: lane.size / 2,
             backgroundColor: isHit ? explosionColor : lane.color,
             shadowColor: isHit ? explosionColor : lane.color,
-            opacity: isHit ? coreOpacity : 1,
-            transform: [{ scale: isHit ? coreScale : bouncePop }],
+            opacity: isHit ? (variant === 1 ? shatterCoreOpacity : variant === 2 ? implodeCoreOpacity : burstCoreOpacity) : 1,
+            transform: [
+              {
+                scale: isHit
+                  ? variant === 1
+                    ? shatterCoreScale
+                    : variant === 2
+                      ? implodeCoreScale
+                      : burstCoreScale
+                  : bouncePop,
+              },
+            ],
           },
         ]}
       />
@@ -212,6 +305,14 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     shadowOpacity: 1,
     shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  shard: {
+    position: 'absolute',
+    width: 2.5,
+    borderRadius: 1.5,
+    shadowOpacity: 1,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },
   },
   spikeSet: {

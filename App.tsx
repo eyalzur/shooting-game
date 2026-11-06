@@ -7,7 +7,8 @@ import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
 import { SPLASH_MIN_DURATION_MS } from './src/constants';
-import { getBestScore, saveBestScore } from './src/utils/storage';
+import { getBestScore, getSoundEnabledPref, saveBestScore, saveSoundEnabledPref } from './src/utils/storage';
+import { setSoundEnabled } from './src/utils/sound';
 import { BotConfig, GameMode } from './src/types';
 
 type Phase = 'splash' | 'home' | 'botSelect' | 'playing';
@@ -20,12 +21,23 @@ export default function App() {
   const [bot, setBot] = useState<BotConfig | null>(null);
   const [matchMs, setMatchMs] = useState<number | null>(null);
   const [runId, setRunId] = useState(0);
+  const [soundOn, setSoundOn] = useState(true);
 
   useEffect(() => {
     setBestScore(getBestScore());
+    const pref = getSoundEnabledPref();
+    setSoundOn(pref);
+    setSoundEnabled(pref);
     const timer = setTimeout(() => setPhase('home'), SPLASH_MIN_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
+
+  const toggleSound = () => {
+    const next = !soundOn;
+    setSoundOn(next);
+    setSoundEnabled(next);
+    saveSoundEnabledPref(next);
+  };
 
   const handleExit = (finalScore: number) => {
     setLastScore(finalScore);
@@ -68,6 +80,8 @@ export default function App() {
             lastScore={lastScore}
             onStartSolo={startSolo}
             onStartVs={goToBotSelect}
+            soundOn={soundOn}
+            onToggleSound={toggleSound}
           />
         )}
         {phase === 'botSelect' && (
@@ -81,6 +95,8 @@ export default function App() {
             matchMs={matchMs}
             onExit={handleExit}
             onPlayAgain={playAgain}
+            soundOn={soundOn}
+            onToggleSound={toggleSound}
           />
         )}
         <StatusBar style="light" />

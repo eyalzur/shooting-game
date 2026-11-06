@@ -3,6 +3,7 @@ import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import Starfield from '../components/Starfield';
 import { BOT_LEVELS, COLORS } from '../constants';
 import { BotConfig } from '../types';
+import { playUiTap } from '../utils/sound';
 
 interface Props {
   onSelect: (bot: BotConfig) => void;
@@ -41,7 +42,13 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
     <View style={[styles.container, { width, height }]}>
       <Starfield width={width} height={height} level={0} />
 
-      <Pressable onPress={onBack} style={styles.backButton}>
+      <Pressable
+        onPress={() => {
+          playUiTap();
+          onBack();
+        }}
+        style={styles.backButton}
+      >
         <Text style={styles.backButtonText}>⟵ HOME</Text>
       </Pressable>
 
@@ -50,7 +57,15 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
 
       <View style={styles.cardStack}>
         {BOT_LEVELS.map((bot, i) => (
-          <BotCard key={bot.name} bot={bot} blurb={BLURB[i]} onPress={() => onSelect(bot)} />
+          <BotCard
+            key={bot.name}
+            bot={bot}
+            blurb={BLURB[i]}
+            onPress={() => {
+              playUiTap();
+              onSelect(bot);
+            }}
+          />
         ))}
       </View>
     </View>

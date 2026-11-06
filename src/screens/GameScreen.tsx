@@ -36,6 +36,7 @@ import {
   TAP_MAX_DURATION_MS,
 } from '../constants';
 import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
+import { playDraw, playHit, playLevelUp, playLose, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
 
@@ -137,6 +138,7 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
     hitColor: null,
     respawnDelay: 0,
     bounceId: 0,
+    explosionVariant: 0,
   }));
 }
 
@@ -147,9 +149,19 @@ interface Props {
   matchMs?: number | null;
   onExit: (finalScore: number) => void;
   onPlayAgain?: () => void;
+  soundOn: boolean;
+  onToggleSound: () => void;
 }
 
-export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit, onPlayAgain }: Props) {
+export default function GameScreen({
+  mode = 'solo',
+  bot,
+  matchMs = null,
+  onExit,
+  onPlayAgain,
+  soundOn,
+  onToggleSound,
+}: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
@@ -214,6 +226,15 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
   const winBurst = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!matchOver) return;
+    if (!isVsBot) {
+      playTimeUp();
+    } else if (outcome === 'win') {
+      playWin();
+    } else if (outcome === 'lose') {
+      playLose();
+    } else {
+      playDraw();
+    }
     resultEnter.setValue(0);
     if (outcome === 'win') {
       Animated.spring(resultEnter, { toValue: 1, friction: 5, tension: 110, useNativeDriver: true }).start();
@@ -253,6 +274,14 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
       width - PLAYER_SIZE / 2
     );
   }, [width]);
+
+  // Ambient music plays while actually in a match, stops the instant you
+  // leave — toggling sound off mid-game stops it too, back on resumes it.
+  useEffect(() => {
+    if (soundOn) startMusic();
+    else stopMusic();
+    return () => stopMusic();
+  }, [soundOn]);
 
   useEffect(() => {
     const tick = (ts: number) => {
@@ -300,6 +329,8 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
             t.hitAt = now;
             t.respawnDelay = randomRespawnDelay();
             t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
+            t.explosionVariant = Math.floor(Math.random() * 3);
+            playHit(t.explosionVariant);
             if (!matchOverRef.current) {
               if (b.owner === 'player') {
                 scoreRef.current += lane.points;
@@ -341,6 +372,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
         if (leveledUp) {
           levelUpIdRef.current += 1;
           setLevelUpEvent({ level: difficultyLevelRef.current, id: levelUpIdRef.current });
+          playLevelUp();
         }
       }
 
@@ -402,6 +434,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
             ...bulletsRef.current,
             { id: ++idCounterRef.current, x: botXRef.current, y: playerY - PLAYER_SIZE / 2, owner: 'bot', color: bot.color },
           ];
+          playShoot();
           botNextShotAtRef.current = now + bot.fireIntervalMs * (0.75 + Math.random() * 0.5);
         }
 
@@ -444,6 +477,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
       },
     ];
     setBullets(bulletsRef.current);
+    playShoot();
   };
 
   // Swipe left/right anywhere on screen to move the player; a quick tap that
@@ -500,8 +534,23 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
   return (
     <View style={styles.container}>
       <View style={[styles.topBar, { height: topBarHeight, paddingTop: insets.top }]}>
-        <Pressable onPress={() => onExit(scoreRef.current)} style={styles.homeButton}>
+        <Pressable
+          onPress={() => {
+            playUiTap();
+            onExit(scoreRef.current);
+          }}
+          style={styles.homeButton}
+        >
           <Text style={styles.homeButtonText}>⟵ HOME</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            onToggleSound();
+            if (!soundOn) playUiTap();
+          }}
+          style={styles.soundToggle}
+        >
+          <Text style={styles.homeButtonText}>{soundOn ? '🔊' : '🔇'}</Text>
         </Pressable>
         <View style={styles.statsRow}>
           <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
@@ -561,10 +610,22 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
                 </View>
               </View>
               <View style={styles.resultButtons}>
-                <Pressable onPress={onPlayAgain} style={styles.resultButtonPrimary}>
+                <Pressable
+                  onPress={() => {
+                    playUiTap();
+                    onPlayAgain?.();
+                  }}
+                  style={styles.resultButtonPrimary}
+                >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
                 </Pressable>
-                <Pressable onPress={() => onExit(scoreRef.current)} style={styles.resultButtonSecondary}>
+                <Pressable
+                  onPress={() => {
+                    playUiTap();
+                    onExit(scoreRef.current);
+                  }}
+                  style={styles.resultButtonSecondary}
+                >
                   <Text style={styles.resultButtonText}>HOME</Text>
                 </Pressable>
               </View>
@@ -641,10 +702,22 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit,
                 </View>
               </View>
               <View style={styles.resultButtons}>
-                <Pressable onPress={onPlayAgain} style={styles.resultButtonPrimary}>
+                <Pressable
+                  onPress={() => {
+                    playUiTap();
+                    onPlayAgain?.();
+                  }}
+                  style={styles.resultButtonPrimary}
+                >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
                 </Pressable>
-                <Pressable onPress={() => onExit(scoreRef.current)} style={styles.resultButtonSecondary}>
+                <Pressable
+                  onPress={() => {
+                    playUiTap();
+                    onExit(scoreRef.current);
+                  }}
+                  style={styles.resultButtonSecondary}
+                >
                   <Text style={styles.resultButtonText}>HOME</Text>
                 </Pressable>
               </View>
@@ -689,6 +762,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  soundToggle: {
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: 'rgba(138,92,255,0.14)',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    marginLeft: 8,
   },
   statsRow: {
     flex: 1,
