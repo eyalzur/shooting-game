@@ -6,7 +6,7 @@ export default function SplashScreen() {
   const { width, height } = useWindowDimensions();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { width, height }]}>
       <Starfield width={width} height={height} />
       <Text style={styles.emoji}>🌌</Text>
       <Text style={styles.title}>{GAME_NAME}</Text>
@@ -18,7 +18,9 @@ export default function SplashScreen() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
     backgroundColor: COLORS.background,
     alignItems: 'center',
     justifyContent: 'center',
