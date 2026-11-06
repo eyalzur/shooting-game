@@ -480,18 +480,29 @@ export default function GameScreen({
     playShoot();
   };
 
-  // Touch anywhere and the cannon jumps straight under your finger (same
-  // column), then tracks it while you drag — direct positional control,
-  // not a relative swipe. A quick tap that barely moves fires on release —
-  // and only on release, never mid-gesture. Distances are measured from
-  // raw touch coordinates (not PanResponder's own gestureState.dx/dy),
-  // which reports unreliably on some mobile browsers and was causing
-  // drags to misfire as taps.
+  // A touch does one of two things, decided by how it ends: let go quickly
+  // without dragging and it's a tap — fires in place, cannon doesn't move.
+  // Hold it down (past TAP_MAX_DURATION_MS) or drag it (past
+  // TAP_MAX_DISTANCE) and it becomes a hold — the cannon jumps to that
+  // column and tracks the finger, but no shot fires. Which one it is isn't
+  // known at touch-down, so a short timer plus a distance check upgrade a
+  // touch to "hold" the moment either threshold is crossed; release before
+  // that and it's still a tap. Distances are measured from raw touch
+  // coordinates (not PanResponder's own gestureState.dx/dy), which reports
+  // unreliably on some mobile browsers.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastTouchXRef = useRef(0);
+  const isHoldRef = useRef(false);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moveTo = (pageX: number) => {
     playerXRef.current = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
     setPlayerX(playerXRef.current);
   };
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
@@ -503,22 +514,34 @@ export default function GameScreen({
           y: evt.nativeEvent.pageY,
           t: Date.now(),
         };
-        moveTo(evt.nativeEvent.pageX);
+        lastTouchXRef.current = evt.nativeEvent.pageX;
+        isHoldRef.current = false;
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = setTimeout(() => {
+          isHoldRef.current = true;
+          moveTo(lastTouchXRef.current);
+        }, TAP_MAX_DURATION_MS);
       },
       onPanResponderMove: (evt) => {
+        lastTouchXRef.current = evt.nativeEvent.pageX;
+        const start = touchStartRef.current;
+        if (!start) return;
+        if (!isHoldRef.current) {
+          const dx = evt.nativeEvent.pageX - start.x;
+          const dy = evt.nativeEvent.pageY - start.y;
+          if (Math.hypot(dx, dy) < TAP_MAX_DISTANCE) return;
+          isHoldRef.current = true;
+          if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        }
         moveTo(evt.nativeEvent.pageX);
       },
-      onPanResponderRelease: (evt) => {
+      onPanResponderRelease: () => {
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
         const start = touchStartRef.current;
         touchStartRef.current = null;
         if (!start) return;
-        const dx = evt.nativeEvent.pageX - start.x;
-        const dy = evt.nativeEvent.pageY - start.y;
-        const distance = Math.hypot(dx, dy);
-        const duration = Date.now() - start.t;
-        if (distance < TAP_MAX_DISTANCE && duration < TAP_MAX_DURATION_MS) {
-          fire();
-        }
+        if (!isHoldRef.current) fire();
+        isHoldRef.current = false;
       },
     })
   ).current;
