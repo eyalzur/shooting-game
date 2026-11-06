@@ -34,7 +34,6 @@ import {
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
-  VS_MATCH_MS,
 } from '../constants';
 import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
 
@@ -140,17 +139,19 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
 interface Props {
   mode?: GameMode;
   bot?: BotConfig;
-  matchMs?: number;
+  /** Match length in ms, picked on the home screen; null means no timer — play until Home. */
+  matchMs?: number | null;
   onExit: (finalScore: number) => void;
   onPlayAgain?: () => void;
 }
 
-export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, onExit, onPlayAgain }: Props) {
+export default function GameScreen({ mode = 'solo', bot, matchMs = null, onExit, onPlayAgain }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
   const playAreaHeight = height - topBarHeight;
   const isVsBot = mode === 'vs' && !!bot;
+  const hasTimer = matchMs !== null;
   const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
 
   const idCounterRef = useRef(LANES.length);
@@ -186,7 +187,7 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
   const [popups, setPopups] = useState(popupsRef.current);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(Math.ceil(matchMs / 1000));
+  const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
   const [matchOver, setMatchOver] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
@@ -228,15 +229,16 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
       const now = Date.now();
       const lanes = effectiveLanesRef.current;
 
-      // VS mode match timer — once it hits zero, scoring freezes for both
-      // sides but the scene keeps animating behind the result overlay.
-      let timeLeftMs = matchMs;
-      if (isVsBot) {
-        timeLeftMs = Math.max(0, matchMs - (now - matchStartRef.current));
+      // Match timer (solo or vs) — once it hits zero, scoring freezes but
+      // the scene keeps animating behind the result overlay.
+      let timeLeftMs = Infinity;
+      if (hasTimer) {
+        timeLeftMs = Math.max(0, matchMs! - (now - matchStartRef.current));
         if (timeLeftMs <= 0 && !matchOverRef.current) {
           matchOverRef.current = true;
           setMatchOver(true);
         }
+        setTimeLeft(Math.ceil(timeLeftMs / 1000));
       }
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
@@ -372,7 +374,6 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
         botDisplayScoreRef.current =
           Math.abs(botDiff) < 0.5 ? botScoreRef.current : botDisplayScoreRef.current + botDiff * Math.min(1, dt * 8);
         setBotDisplayScore(Math.round(botDisplayScoreRef.current));
-        setTimeLeft(Math.ceil(timeLeftMs / 1000));
       }
 
       popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
@@ -472,13 +473,11 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
           <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
             {displayScore}
           </Animated.Text>
+          {hasTimer && <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>}
           {isVsBot && bot ? (
-            <>
-              <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>
-              <Text style={[styles.levelLabel, { color: bot.color }]}>
-                {bot.name.toUpperCase()} {botDisplayScore}
-              </Text>
-            </>
+            <Text style={[styles.levelLabel, { color: bot.color }]}>
+              {bot.name.toUpperCase()} {botDisplayScore}
+            </Text>
           ) : (
             <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
           )}
@@ -515,6 +514,28 @@ export default function GameScreen({ mode = 'solo', bot, matchMs = VS_MATCH_MS, 
           <Player x={playerX} y={playerY} />
           <LevelUpBanner event={levelUpEvent} />
         </View>
+
+        {!isVsBot && matchOver && (
+          <View style={styles.resultOverlay}>
+            <View style={styles.resultCard}>
+              <Text style={styles.resultTitle}>TIME'S UP</Text>
+              <View style={styles.resultScores}>
+                <View style={styles.resultScoreBlock}>
+                  <Text style={styles.resultLabel}>SCORE</Text>
+                  <Text style={styles.resultValue}>{scoreRef.current}</Text>
+                </View>
+              </View>
+              <View style={styles.resultButtons}>
+                <Pressable onPress={onPlayAgain} style={styles.resultButtonPrimary}>
+                  <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
+                </Pressable>
+                <Pressable onPress={() => onExit(scoreRef.current)} style={styles.resultButtonSecondary}>
+                  <Text style={styles.resultButtonText}>HOME</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        )}
 
         {isVsBot && matchOver && bot && (
           <View style={styles.resultOverlay}>

@@ -102,14 +102,23 @@ export const FIRE_RECHARGE_STEP = 0.035; // -3.5% recharge time per level
 export const TAP_MAX_DISTANCE = 18; // px
 export const TAP_MAX_DURATION_MS = 250;
 
-// VS mode: a timed match against a simulated "robo player" opponent, picked
-// at the start, playing on the SAME board as the player — same targets,
-// same bottom row, both cannons visibly moving and firing at the same time.
-// The bot isn't a dice roll: it physically tracks the nearest live target
-// and fires at its own real x position, so misses happen because its aim
-// or reflexes are worse, same as a real player would miss.
-export const VS_MATCH_MS = 60000;
-export const VS_DURATION_OPTIONS = [30000, 60000, 90000];
+// Match length is picked once, at the home screen, before either mode —
+// solo or vs. null means no timer: play until you tap Home (solo's
+// original endless mode).
+export const DURATION_OPTIONS: { label: string; ms: number | null }[] = [
+  { label: '30s', ms: 30000 },
+  { label: '1m', ms: 60000 },
+  { label: '2m', ms: 120000 },
+  { label: '∞', ms: null },
+];
+
+// VS mode: a timed (or untimed) match against a simulated "robo player"
+// opponent, picked at the start, playing on the SAME board as the player —
+// same targets, same bottom row, both cannons visibly moving and firing at
+// the same time. The bot isn't a dice roll: it physically tracks the
+// nearest live target and fires at its own real x position, so misses
+// happen because its aim or reflexes are worse, same as a real player
+// would miss.
 export const BOT_LEVELS = [
   { name: 'Rookie', color: COLORS.redLight, trackSpeed: 100, aimJitter: 46, fireIntervalMs: 1500 },
   { name: 'Veteran', color: COLORS.red, trackSpeed: 170, aimJitter: 22, fireIntervalMs: 1150 },

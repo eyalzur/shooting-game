@@ -1,13 +1,13 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Starfield from '../components/Starfield';
-import { COLORS, GAME_NAME } from '../constants';
+import { COLORS, DURATION_OPTIONS, GAME_NAME } from '../constants';
 
 interface Props {
   bestScore: number;
   lastScore: number | null;
-  onStartSolo: () => void;
-  onStartVs: () => void;
+  onStartSolo: (matchMs: number | null) => void;
+  onStartVs: (matchMs: number | null) => void;
 }
 
 function MenuButton({
@@ -44,6 +44,7 @@ function MenuButton({
 
 export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartVs }: Props) {
   const { width, height } = useWindowDimensions();
+  const [matchMs, setMatchMs] = useState<number | null>(DURATION_OPTIONS[1].ms);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -65,9 +66,22 @@ export default function HomeScreen({ bestScore, lastScore, onStartSolo, onStartV
         )}
       </View>
 
+      <Text style={styles.durationLabel}>GAME TIME</Text>
+      <View style={styles.durationRow}>
+        {DURATION_OPTIONS.map((opt) => (
+          <Pressable key={opt.label} onPress={() => setMatchMs(opt.ms)}>
+            <View style={[styles.durationChip, opt.ms === matchMs && styles.durationChipActive]}>
+              <Text style={[styles.durationChipText, opt.ms === matchMs && styles.durationChipTextActive]}>
+                {opt.label}
+              </Text>
+            </View>
+          </Pressable>
+        ))}
+      </View>
+
       <View style={styles.buttonStack}>
-        <MenuButton label="SINGLE PLAYER" variant="primary" onPress={onStartSolo} />
-        <MenuButton label="VS ROBO PLAYER" variant="secondary" onPress={onStartVs} />
+        <MenuButton label="SINGLE PLAYER" variant="primary" onPress={() => onStartSolo(matchMs)} />
+        <MenuButton label="VS ROBO PLAYER" variant="secondary" onPress={() => onStartVs(matchMs)} />
       </View>
     </View>
   );
@@ -125,6 +139,37 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '600',
     opacity: 0.85,
+  },
+  durationLabel: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
+    letterSpacing: 2,
+    marginBottom: 10,
+  },
+  durationRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 28,
+  },
+  durationChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(16,12,38,0.5)',
+  },
+  durationChipActive: {
+    borderColor: COLORS.cyan,
+    backgroundColor: 'rgba(90,216,255,0.16)',
+  },
+  durationChipText: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  durationChipTextActive: {
+    color: COLORS.textPrimary,
   },
   buttonStack: {
     gap: 16,
