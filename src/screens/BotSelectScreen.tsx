@@ -1,5 +1,6 @@
 import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
 import { BOT_LEVELS, COLORS } from '../constants';
 import { BotConfig } from '../types';
@@ -42,7 +43,7 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
     <View style={[styles.container, { width, height }]}>
       <Starfield width={width} height={height} level={0} />
 
-      <Pressable
+      <PressableScale
         onPress={() => {
           playUiTap();
           onBack();
@@ -50,7 +51,7 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
         style={styles.backButton}
       >
         <Text style={styles.backButtonText}>⟵ HOME</Text>
-      </Pressable>
+      </PressableScale>
 
       <Text style={styles.title}>CHOOSE YOUR OPPONENT</Text>
       <Text style={styles.subtitle}>Same screen, same clock. Highest score when time's up wins.</Text>

@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Pickup from '../components/Pickup';
+import PowerUpBanner from '../components/PowerUpBanner';
+import PressableScale from '../components/PressableScale';
 import Player from '../components/Player';
 import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
@@ -13,6 +15,7 @@ import {
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
   BULLET_SPEED_STEP,
+  BULLET_SPEED_UPGRADE_MULT,
   COLORS,
   DIFFICULTY_MAX_LEVEL,
   DIFFICULTY_MIN_SIZE_MULTIPLIER,
@@ -30,6 +33,7 @@ import {
   HIT_BAND,
   LANES,
   MAX_BULLETS,
+  MOVE_SPEED_UPGRADE_MULT,
   PICKUP_CURRENCY_CHANCE,
   PICKUP_CURRENCY_MAX,
   PICKUP_CURRENCY_MIN,
@@ -53,7 +57,7 @@ import {
   TAP_MAX_DURATION_MS,
   WIN_CURRENCY_REWARD,
 } from '../constants';
-import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState } from '../types';
+import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState, UpgradeId } from '../types';
 import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
@@ -80,9 +84,9 @@ function getEffectiveLanes(level: number): LaneConfig[] {
   });
 }
 
-function getEffectiveBulletSpeed(level: number) {
+function getEffectiveBulletSpeed(level: number, ownsBulletSpeed: boolean) {
   const mul = Math.min(BULLET_SPEED_MAX_MULTIPLIER, 1 + level * BULLET_SPEED_STEP);
-  return BULLET_SPEED * mul;
+  return BULLET_SPEED * mul * (ownsBulletSpeed ? BULLET_SPEED_UPGRADE_MULT : 1);
 }
 
 function getEffectiveRechargeMs(level: number) {
@@ -171,8 +175,8 @@ interface Props {
   onPlayAgain?: () => void;
   soundOn: boolean;
   onToggleSound: () => void;
-  /** Permanent shop upgrade: every shot fires as a pair, same charge cost. */
-  ownsDoubleShot: boolean;
+  /** Owned permanent shop upgrades; unrecognized ids are just ignored. */
+  ownedUpgrades: UpgradeId[];
   onEarnCurrency: (amount: number) => void;
 }
 
@@ -184,9 +188,12 @@ export default function GameScreen({
   onPlayAgain,
   soundOn,
   onToggleSound,
-  ownsDoubleShot,
+  ownedUpgrades,
   onEarnCurrency,
 }: Props) {
+  const ownsDoubleShot = ownedUpgrades.includes('doubleShot');
+  const ownsMoveSpeed = ownedUpgrades.includes('moveSpeed');
+  const ownsBulletSpeed = ownedUpgrades.includes('bulletSpeed');
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
@@ -241,6 +248,8 @@ export default function GameScreen({
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
   const levelUpIdRef = useRef(0);
+  const [powerUpEvent, setPowerUpEvent] = useState<{ id: number } | null>(null);
+  const powerUpIdRef = useRef(0);
   const scorePulse = useRef(new Animated.Value(1)).current;
   const triggerScorePulse = () => {
     scorePulse.setValue(1);
@@ -342,7 +351,7 @@ export default function GameScreen({
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
-      const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current);
+      const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, ownsBulletSpeed);
       bulletsRef.current = bulletsRef.current
         .map((b) => ({ ...b, y: b.y - bulletSpeed * dt }))
         .filter((b) => b.y > -20);
@@ -439,6 +448,8 @@ export default function GameScreen({
               ];
             } else {
               rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current });
             }
             playPickup(p.kind);
             continue;
@@ -601,9 +612,10 @@ export default function GameScreen({
     playerXRef.current = clamped;
     const dist = Math.abs(clamped - playerXAnimTargetRef.current);
     playerXAnimTargetRef.current = clamped;
+    const effectiveSpeed = ownsMoveSpeed ? PLAYER_SPEED * MOVE_SPEED_UPGRADE_MULT : PLAYER_SPEED;
     const duration = Math.min(
       PLAYER_SLIDE_MAX_MS,
-      Math.max(PLAYER_SLIDE_MIN_MS, (dist / PLAYER_SPEED) * 1000)
+      Math.max(PLAYER_SLIDE_MIN_MS, (dist / effectiveSpeed) * 1000)
     );
     Animated.timing(playerXAnim, {
       toValue: clamped,
@@ -676,7 +688,7 @@ export default function GameScreen({
   return (
     <View style={styles.container}>
       <View style={[styles.topBar, { height: topBarHeight, paddingTop: insets.top }]}>
-        <Pressable
+        <PressableScale
           onPress={() => {
             playUiTap();
             onExit(scoreRef.current);
@@ -684,8 +696,8 @@ export default function GameScreen({
           style={styles.homeButton}
         >
           <Text style={styles.homeButtonText}>⟵ HOME</Text>
-        </Pressable>
-        <Pressable
+        </PressableScale>
+        <PressableScale
           onPress={() => {
             onToggleSound();
             if (!soundOn) playUiTap();
@@ -693,7 +705,7 @@ export default function GameScreen({
           style={styles.soundToggle}
         >
           <Text style={styles.homeButtonText}>{soundOn ? '🔊' : '🔇'}</Text>
-        </Pressable>
+        </PressableScale>
         <View style={styles.statsRow}>
           <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
           <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
@@ -749,6 +761,7 @@ export default function GameScreen({
           {isVsBot && bot && <Player x={botX} y={playerY} color={bot.color} />}
           <Player x={playerXAnim} y={playerY} />
           <LevelUpBanner event={levelUpEvent} />
+          <PowerUpBanner event={powerUpEvent} />
         </View>
 
         {!isVsBot && matchOver && (
@@ -762,7 +775,7 @@ export default function GameScreen({
                 </View>
               </View>
               <View style={styles.resultButtons}>
-                <Pressable
+                <PressableScale
                   onPress={() => {
                     playUiTap();
                     onPlayAgain?.();
@@ -770,8 +783,8 @@ export default function GameScreen({
                   style={styles.resultButtonPrimary}
                 >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
-                </Pressable>
-                <Pressable
+                </PressableScale>
+                <PressableScale
                   onPress={() => {
                     playUiTap();
                     onExit(scoreRef.current);
@@ -779,7 +792,7 @@ export default function GameScreen({
                   style={styles.resultButtonSecondary}
                 >
                   <Text style={styles.resultButtonText}>HOME</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </View>
           </View>
@@ -854,7 +867,7 @@ export default function GameScreen({
                 </View>
               </View>
               <View style={styles.resultButtons}>
-                <Pressable
+                <PressableScale
                   onPress={() => {
                     playUiTap();
                     onPlayAgain?.();
@@ -862,8 +875,8 @@ export default function GameScreen({
                   style={styles.resultButtonPrimary}
                 >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
-                </Pressable>
-                <Pressable
+                </PressableScale>
+                <PressableScale
                   onPress={() => {
                     playUiTap();
                     onExit(scoreRef.current);
@@ -871,7 +884,7 @@ export default function GameScreen({
                   style={styles.resultButtonSecondary}
                 >
                   <Text style={styles.resultButtonText}>HOME</Text>
-                </Pressable>
+                </PressableScale>
               </View>
             </Animated.View>
           </View>

@@ -67,6 +67,17 @@ export interface ScorePopupState {
 
 export type GameMode = 'solo' | 'vs';
 
+/** A permanent shop upgrade, identified by id — the owned set is what's persisted. */
+export type UpgradeId = 'doubleShot' | 'moveSpeed' | 'bulletSpeed';
+
+export interface ShopItemDef {
+  id: UpgradeId;
+  icon: string;
+  name: string;
+  description: string;
+  price: number;
+}
+
 export interface BotConfig {
   name: string;
   color: string;

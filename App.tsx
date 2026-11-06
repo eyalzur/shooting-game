@@ -7,19 +7,19 @@ import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
 import ShopScreen from './src/screens/ShopScreen';
-import { SHOP_DOUBLE_SHOT_PRICE, SPLASH_MIN_DURATION_MS } from './src/constants';
+import { SPLASH_MIN_DURATION_MS } from './src/constants';
 import {
   getBestScore,
   getCurrency,
-  getOwnsDoubleShot,
+  getOwnedUpgrades,
   getSoundEnabledPref,
   saveBestScore,
   saveCurrency,
-  saveOwnsDoubleShot,
+  saveOwnedUpgrades,
   saveSoundEnabledPref,
 } from './src/utils/storage';
 import { setSoundEnabled } from './src/utils/sound';
-import { BotConfig, GameMode } from './src/types';
+import { BotConfig, GameMode, UpgradeId } from './src/types';
 
 type Phase = 'splash' | 'home' | 'botSelect' | 'playing' | 'shop';
 
@@ -33,12 +33,12 @@ export default function App() {
   const [runId, setRunId] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
   const [currency, setCurrency] = useState(0);
-  const [ownsDoubleShot, setOwnsDoubleShot] = useState(false);
+  const [ownedUpgrades, setOwnedUpgrades] = useState<UpgradeId[]>([]);
 
   useEffect(() => {
     setBestScore(getBestScore());
     setCurrency(getCurrency());
-    setOwnsDoubleShot(getOwnsDoubleShot());
+    setOwnedUpgrades(getOwnedUpgrades());
     const pref = getSoundEnabledPref();
     setSoundOn(pref);
     setSoundEnabled(pref);
@@ -64,13 +64,16 @@ export default function App() {
     });
   };
 
-  const purchaseDoubleShot = () => {
+  const purchaseUpgrade = (id: UpgradeId, price: number) => {
     setCurrency((prev) => {
-      if (ownsDoubleShot || prev < SHOP_DOUBLE_SHOT_PRICE) return prev;
-      const next = prev - SHOP_DOUBLE_SHOT_PRICE;
+      if (ownedUpgrades.includes(id) || prev < price) return prev;
+      const next = prev - price;
       saveCurrency(next);
-      setOwnsDoubleShot(true);
-      saveOwnsDoubleShot(true);
+      setOwnedUpgrades((prevOwned) => {
+        const nextOwned = [...prevOwned, id];
+        saveOwnedUpgrades(nextOwned);
+        return nextOwned;
+      });
       return next;
     });
   };
@@ -128,9 +131,8 @@ export default function App() {
         {phase === 'shop' && (
           <ShopScreen
             currency={currency}
-            ownsDoubleShot={ownsDoubleShot}
-            price={SHOP_DOUBLE_SHOT_PRICE}
-            onPurchaseDoubleShot={purchaseDoubleShot}
+            ownedUpgrades={ownedUpgrades}
+            onPurchase={purchaseUpgrade}
             onBack={() => setPhase('home')}
           />
         )}
@@ -144,7 +146,7 @@ export default function App() {
             onPlayAgain={playAgain}
             soundOn={soundOn}
             onToggleSound={toggleSound}
-            ownsDoubleShot={ownsDoubleShot}
+            ownedUpgrades={ownedUpgrades}
             onEarnCurrency={earnCurrency}
           />
         )}

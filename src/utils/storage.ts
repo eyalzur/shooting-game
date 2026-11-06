@@ -1,3 +1,5 @@
+import { UpgradeId } from '../types';
+
 // Best score persistence. This ships as a web PWA, so localStorage is the
 // natural fit — guarded for environments where it's unavailable (private
 // browsing, SSR, etc).
@@ -62,20 +64,35 @@ export function saveCurrency(amount: number): void {
   }
 }
 
-const OWNS_DOUBLE_SHOT_KEY = 'strafe-strike-owns-double-shot';
+// Owned shop upgrades, as a plain id list — one key for the whole set so a
+// new shop item never needs a new storage key.
+const OWNED_UPGRADES_KEY = 'strafe-strike-owned-upgrades';
+// Superseded by OWNED_UPGRADES_KEY; only read once, to migrate an existing
+// player's earlier Double Shot purchase into the new list.
+const LEGACY_OWNS_DOUBLE_SHOT_KEY = 'strafe-strike-owns-double-shot';
 
-export function getOwnsDoubleShot(): boolean {
+export function getOwnedUpgrades(): UpgradeId[] {
   try {
-    return window.localStorage.getItem(OWNS_DOUBLE_SHOT_KEY) === '1';
+    const raw = window.localStorage.getItem(OWNED_UPGRADES_KEY);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    }
+    if (window.localStorage.getItem(LEGACY_OWNS_DOUBLE_SHOT_KEY) === '1') {
+      const migrated: UpgradeId[] = ['doubleShot'];
+      saveOwnedUpgrades(migrated);
+      return migrated;
+    }
+    return [];
   } catch {
-    return false;
+    return [];
   }
 }
 
-export function saveOwnsDoubleShot(owns: boolean): void {
+export function saveOwnedUpgrades(ids: UpgradeId[]): void {
   try {
-    window.localStorage.setItem(OWNS_DOUBLE_SHOT_KEY, owns ? '1' : '0');
+    window.localStorage.setItem(OWNED_UPGRADES_KEY, JSON.stringify(ids));
   } catch {
-    // ignore — purchase just won't persist this session
+    // ignore — purchases just won't persist this session
   }
 }

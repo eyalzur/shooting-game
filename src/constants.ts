@@ -1,6 +1,6 @@
-import { LaneConfig } from './types';
+import { LaneConfig, ShopItemDef } from './types';
 
-export const GAME_NAME = 'Strafe Strike';
+export const GAME_NAME = 'Nova Strike';
 
 export const SPLASH_MIN_DURATION_MS = 1500;
 
@@ -164,4 +164,34 @@ export const CURRENCY_NAME = 'Stardust';
 export const CURRENCY_ICON = '✨';
 export const WIN_CURRENCY_REWARD = 25;
 
-export const SHOP_DOUBLE_SHOT_PRICE = 150;
+// Shop catalog — the player's cannon is the "avatar" here (this game has no
+// other character art), so every upgrade is framed as modifying it. Owned
+// upgrades are stored as a plain id list (see storage.ts), so adding a new
+// row here is enough to make it purchasable; GameScreen reads ids it
+// recognizes and ignores the rest.
+export const MOVE_SPEED_UPGRADE_MULT = 1.6;
+export const BULLET_SPEED_UPGRADE_MULT = 1.35;
+
+export const SHOP_ITEMS: ShopItemDef[] = [
+  {
+    id: 'doubleShot',
+    icon: '⚡',
+    name: 'DOUBLE SHOT',
+    description: 'Every shot fires as a pair, permanently. Same charge cost.',
+    price: 150,
+  },
+  {
+    id: 'moveSpeed',
+    icon: '🏎️',
+    name: 'SWIFT CANNON',
+    description: 'Slides to your hold spot noticeably faster.',
+    price: 100,
+  },
+  {
+    id: 'bulletSpeed',
+    icon: '🔥',
+    name: 'HOT ROUNDS',
+    description: 'Shots fly faster, so they reach targets sooner.',
+    price: 120,
+  },
+];

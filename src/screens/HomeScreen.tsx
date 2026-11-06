@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
 import { COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
 import { playUiTap } from '../utils/sound';
@@ -21,7 +22,7 @@ function MenuButton({
   onPress,
 }: {
   label: string;
-  variant: 'primary' | 'secondary' | 'tertiary';
+  variant: 'primary' | 'secondary';
   onPress: () => void;
 }) {
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -36,17 +37,10 @@ function MenuButton({
         style={[
           styles.button,
           variant === 'secondary' && styles.buttonSecondary,
-          variant === 'tertiary' && styles.buttonTertiary,
           { transform: [{ scale: pressScale }] },
         ]}
       >
-        <Text
-          style={[
-            styles.buttonLabel,
-            variant === 'secondary' && styles.buttonLabelSecondary,
-            variant === 'tertiary' && styles.buttonLabelTertiary,
-          ]}
-        >
+        <Text style={[styles.buttonLabel, variant === 'secondary' && styles.buttonLabelSecondary]}>
           {label}
         </Text>
       </Animated.View>
@@ -71,7 +65,7 @@ export default function HomeScreen({
     <View style={[styles.container, { width, height }]}>
       <Starfield width={width} height={height} level={0} />
 
-      <Pressable
+      <PressableScale
         onPress={() => {
           onToggleSound();
           if (!soundOn) playUiTap();
@@ -79,19 +73,7 @@ export default function HomeScreen({
         style={styles.soundButton}
       >
         <Text style={styles.soundButtonText}>{soundOn ? '🔊 SOUND' : '🔇 MUTED'}</Text>
-      </Pressable>
-
-      <Pressable
-        onPress={() => {
-          playUiTap();
-          onOpenShop();
-        }}
-        style={styles.currencyButton}
-      >
-        <Text style={styles.currencyButtonText}>
-          {CURRENCY_ICON} {currency}
-        </Text>
-      </Pressable>
+      </PressableScale>
 
       <Text style={styles.title}>{GAME_NAME}</Text>
       <Text style={styles.subtitle}>Take aim. Hold your ground.</Text>
@@ -112,13 +94,16 @@ export default function HomeScreen({
       <Text style={styles.durationLabel}>GAME TIME</Text>
       <View style={styles.durationRow}>
         {DURATION_OPTIONS.map((opt) => (
-          <Pressable key={opt.label} onPress={() => setMatchMs(opt.ms)}>
-            <View style={[styles.durationChip, opt.ms === matchMs && styles.durationChipActive]}>
-              <Text style={[styles.durationChipText, opt.ms === matchMs && styles.durationChipTextActive]}>
-                {opt.label}
-              </Text>
-            </View>
-          </Pressable>
+          <PressableScale
+            key={opt.label}
+            onPress={() => setMatchMs(opt.ms)}
+            style={[styles.durationChip, opt.ms === matchMs && styles.durationChipActive]}
+            scaleTo={0.9}
+          >
+            <Text style={[styles.durationChipText, opt.ms === matchMs && styles.durationChipTextActive]}>
+              {opt.label}
+            </Text>
+          </PressableScale>
         ))}
       </View>
 
@@ -139,15 +124,23 @@ export default function HomeScreen({
             onStartVs(matchMs);
           }}
         />
-        <MenuButton
-          label={`SHOP ${CURRENCY_ICON}`}
-          variant="tertiary"
-          onPress={() => {
-            playUiTap();
-            onOpenShop();
-          }}
-        />
       </View>
+
+      <PressableScale
+        onPress={() => {
+          playUiTap();
+          onOpenShop();
+        }}
+        style={[styles.shopDock, { width }]}
+        scaleTo={0.97}
+      >
+        <Text style={styles.shopDockIcon}>🛠️</Text>
+        <Text style={styles.shopDockLabel}>SHOP</Text>
+        <View style={styles.shopDockDivider} />
+        <Text style={styles.shopDockCurrency}>
+          {CURRENCY_ICON} {currency}
+        </Text>
+      </PressableScale>
     </View>
   );
 }
@@ -178,20 +171,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
-  currencyButton: {
+  shopDock: {
     position: 'absolute',
-    top: 54,
-    left: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    bottom: 0,
+    left: 0,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(16,12,38,0.85)',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
   },
-  currencyButtonText: {
+  shopDockIcon: {
+    fontSize: 18,
+  },
+  shopDockLabel: {
     color: COLORS.textPrimary,
-    fontSize: 12,
+    fontSize: 14,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
+  shopDockDivider: {
+    width: 1,
+    height: 18,
+    backgroundColor: COLORS.border,
+  },
+  shopDockCurrency: {
+    color: COLORS.purple,
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -293,13 +302,6 @@ const styles = StyleSheet.create({
     borderColor: COLORS.pink,
     shadowColor: COLORS.pink,
   },
-  buttonTertiary: {
-    paddingVertical: 12,
-    backgroundColor: 'rgba(138,92,255,0.1)',
-    borderColor: COLORS.purple,
-    shadowColor: COLORS.purple,
-    shadowOpacity: 0.5,
-  },
   buttonLabel: {
     color: COLORS.textPrimary,
     fontSize: 18,
@@ -312,9 +314,5 @@ const styles = StyleSheet.create({
   buttonLabelSecondary: {
     fontSize: 15,
     textShadowColor: COLORS.pink,
-  },
-  buttonLabelTertiary: {
-    fontSize: 13,
-    textShadowColor: COLORS.purple,
   },
 });

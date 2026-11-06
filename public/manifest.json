@@ -1,6 +1,6 @@
 {
-  "name": "Strafe Strike",
-  "short_name": "Strafe Strike",
+  "name": "Nova Strike",
+  "short_name": "Nova Strike",
   "description": "Aim, move and shoot moving targets across near and far lanes.",
   "start_url": "/shooting-game/",
   "scope": "/shooting-game/",
