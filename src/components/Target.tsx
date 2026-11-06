@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { BOUNCE_FLASH_MS, EXPLOSION_MS } from '../constants';
+import { BOUNCE_FLASH_MS, COLORS, EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 import { playBounce } from '../utils/sound';
 
@@ -22,6 +22,12 @@ export default function Target({ target, lane, laneY }: Props) {
   // it reads as "who scored this" at a glance.
   const explosionColor = target.hitColor ?? lane.color;
   const variant = target.explosionVariant % 3;
+  // A golden target is the same lane shape, just recolored gold and given an
+  // extra pulsing ring, so it reads as special at a glance without a new
+  // sprite. The pulse is derived straight from the spin phase the game loop
+  // already advances every tick, not a standalone Animated loop.
+  const baseColor = target.isGolden ? COLORS.gold : lane.color;
+  const goldenPulse = target.isGolden ? 0.4 + 0.4 * Math.abs(Math.sin(target.spin * Math.PI * 4)) : 0;
 
   // One-shot explosion, triggered on the instant a hit lands. It's a finite
   // animation (not a loop), so it can't drift or stall the way an
@@ -217,19 +223,34 @@ export default function Target({ target, lane, laneY }: Props) {
                 width: glowSize,
                 height: glowSize,
                 borderRadius: glowSize / 2,
-                backgroundColor: lane.color,
-                shadowColor: lane.color,
+                backgroundColor: baseColor,
+                shadowColor: baseColor,
               },
             ]}
           />
+          {target.isGolden && (
+            <View
+              pointerEvents="none"
+              style={[
+                styles.goldRing,
+                {
+                  width: lane.size * 1.55,
+                  height: lane.size * 1.55,
+                  borderRadius: lane.size * 0.78,
+                  borderColor: COLORS.gold,
+                  opacity: goldenPulse,
+                },
+              ]}
+            />
+          )}
           <View
             style={[
               styles.spikeSet,
               { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ rotate }] },
             ]}
           >
-            <View style={[styles.spike, styles.spikeV, { backgroundColor: lane.color }]} />
-            <View style={[styles.spike, styles.spikeH, { backgroundColor: lane.color }]} />
+            <View style={[styles.spike, styles.spikeV, { backgroundColor: baseColor }]} />
+            <View style={[styles.spike, styles.spikeH, { backgroundColor: baseColor }]} />
           </View>
           <View
             style={[
@@ -237,8 +258,8 @@ export default function Target({ target, lane, laneY }: Props) {
               { width: lane.size * 1.3, height: lane.size * 1.3, transform: [{ rotate: rotateBack }] },
             ]}
           >
-            <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: lane.color }]} />
-            <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: lane.color }]} />
+            <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: baseColor }]} />
+            <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: baseColor }]} />
           </View>
         </>
       )}
@@ -250,8 +271,8 @@ export default function Target({ target, lane, laneY }: Props) {
             width: lane.size,
             height: lane.size,
             borderRadius: lane.size / 2,
-            backgroundColor: isHit ? explosionColor : lane.color,
-            shadowColor: isHit ? explosionColor : lane.color,
+            backgroundColor: isHit ? explosionColor : baseColor,
+            shadowColor: isHit ? explosionColor : baseColor,
             opacity: isHit ? (variant === 1 ? shatterCoreOpacity : variant === 2 ? implodeCoreOpacity : burstCoreOpacity) : 1,
             transform: [
               {
@@ -297,6 +318,11 @@ const styles = StyleSheet.create({
   ring: {
     position: 'absolute',
     borderWidth: 2,
+  },
+  goldRing: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderStyle: 'dashed',
   },
   spark: {
     position: 'absolute',

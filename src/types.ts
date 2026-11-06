@@ -30,6 +30,20 @@ export interface TargetState {
   bounceId: number;
   /** Which explosion animation plays on this hit — rolled fresh each time, for variety. */
   explosionVariant: number;
+  /** A rare "golden" variant worth double points — rolled fresh on spawn/respawn. */
+  isGolden: boolean;
+}
+
+export type PickupKind = 'score' | 'rapidFire';
+
+/** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
+export interface PickupState {
+  id: number;
+  x: number;
+  y: number;
+  kind: PickupKind;
+  /** Bonus score for a 'score' pickup; unused for 'rapidFire'. */
+  value: number;
 }
 
 export interface BulletState {

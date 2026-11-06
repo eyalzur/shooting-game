@@ -3,6 +3,7 @@ import { Animated, Easing, PanResponder, Pressable, StyleSheet, Text, View, useW
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
 import LevelUpBanner from '../components/LevelUpBanner';
+import Pickup from '../components/Pickup';
 import Player from '../components/Player';
 import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
@@ -19,13 +20,23 @@ import {
   DIFFICULTY_SIZE_STEP,
   DIFFICULTY_SPEED_STEP,
   DIFFICULTY_STEP_HITS,
+  ENHANCEMENTS_ENABLED,
   FIRE_MAX_CHARGES,
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
   FIRE_RECHARGE_STEP,
+  GOLDEN_SCORE_MULTIPLIER,
+  GOLDEN_STAR_CHANCE,
   HIT_BAND,
   LANES,
   MAX_BULLETS,
+  PICKUP_DROP_CHANCE,
+  PICKUP_FALL_SPEED,
+  PICKUP_RAPID_CHANCE,
+  PICKUP_RAPID_DURATION_MS,
+  PICKUP_SCORE_MAX,
+  PICKUP_SCORE_MIN,
+  PICKUP_SIZE,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
   PLAYER_SPEED,
@@ -38,8 +49,8 @@ import {
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
 } from '../constants';
-import { BotConfig, BulletState, GameMode, LaneConfig, ScorePopupState, TargetState } from '../types';
-import { playDraw, playHit, playLevelUp, playLose, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
+import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState } from '../types';
+import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
 
@@ -102,6 +113,7 @@ function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: numb
           x: randomXForLane(lane.size, width),
           dir: Math.random() < 0.5 ? 1 : -1,
           speed: randomSpeedForLane(lane),
+          isGolden: ENHANCEMENTS_ENABLED && Math.random() < GOLDEN_STAR_CHANCE,
         };
       }
       return t;
@@ -142,6 +154,7 @@ function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
     respawnDelay: 0,
     bounceId: 0,
     explosionVariant: 0,
+    isGolden: ENHANCEMENTS_ENABLED && Math.random() < GOLDEN_STAR_CHANCE,
   }));
 }
 
@@ -182,6 +195,10 @@ export default function GameScreen({
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
+  const pickupsRef = useRef<PickupState[]>([]);
+  // Rapid-fire pickup: a timestamp, not a bool, so it just naturally expires
+  // — no separate timer to clear or leak on unmount.
+  const rapidFireUntilRef = useRef(0);
   const scoreRef = useRef(0);
   const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
@@ -205,6 +222,8 @@ export default function GameScreen({
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [popups, setPopups] = useState(popupsRef.current);
+  const [pickups, setPickups] = useState(pickupsRef.current);
+  const [rapidFireMsLeft, setRapidFireMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -337,20 +356,32 @@ export default function GameScreen({
             t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
             t.explosionVariant = Math.floor(Math.random() * 3);
             playHit(t.explosionVariant);
+            if (t.isGolden) playGolden();
             if (!matchOverRef.current) {
+              const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
               if (b.owner === 'player') {
-                scoreRef.current += lane.points;
+                scoreRef.current += gain;
                 hitsRef.current += 1;
                 popupsRef.current = [
                   ...popupsRef.current,
-                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: COLORS.blue, createdAt: now },
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: t.isGolden ? COLORS.gold : COLORS.blue, createdAt: now },
                 ];
                 triggerScorePulse();
+                // A broken target sometimes drops something to catch —
+                // either a flat bonus or a few seconds of rapid fire.
+                if (ENHANCEMENTS_ENABLED && Math.random() < PICKUP_DROP_CHANCE) {
+                  const kind: PickupKind = Math.random() < PICKUP_RAPID_CHANCE ? 'rapidFire' : 'score';
+                  const value =
+                    kind === 'score'
+                      ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
+                      : 0;
+                  pickupsRef.current = [...pickupsRef.current, { id: ++idCounterRef.current, x: t.x, y: laneY, kind, value }];
+                }
               } else if (bot) {
-                botScoreRef.current += lane.points;
+                botScoreRef.current += gain;
                 popupsRef.current = [
                   ...popupsRef.current,
-                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: lane.points, color: bot.color, createdAt: now },
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: bot.color, createdAt: now },
                 ];
               }
             }
@@ -361,6 +392,37 @@ export default function GameScreen({
         if (!hitSomething) remainingBullets.push(b);
       }
       bulletsRef.current = remainingBullets;
+
+      // Pickups: fall straight down from where they dropped. Brush the
+      // player's cannon against one to collect it; miss the catch and it
+      // falls off the bottom and is gone.
+      if (ENHANCEMENTS_ENABLED) {
+        const nextPickups: PickupState[] = [];
+        for (const p of pickupsRef.current) {
+          const nextY = p.y + PICKUP_FALL_SPEED * dt;
+          const caught =
+            !matchOverRef.current &&
+            Math.abs(nextY - playerY) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2 &&
+            Math.abs(p.x - playerXRef.current) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2;
+          if (caught) {
+            if (p.kind === 'score') {
+              scoreRef.current += p.value;
+              popupsRef.current = [
+                ...popupsRef.current,
+                { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.gold, createdAt: now },
+              ];
+              triggerScorePulse();
+            } else {
+              rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
+            }
+            playPickup(p.kind);
+            continue;
+          }
+          if (nextY > playAreaHeight + PICKUP_SIZE) continue;
+          nextPickups.push({ ...p, y: nextY });
+        }
+        pickupsRef.current = nextPickups;
+      }
 
       // Difficulty climbs with total hits landed and never drops — a miss
       // just doesn't add to it, so a long run keeps climbing.
@@ -455,6 +517,8 @@ export default function GameScreen({
       setTargets(targetsRef.current);
       setBullets(bulletsRef.current);
       setPopups(popupsRef.current);
+      setPickups(pickupsRef.current);
+      setRapidFireMsLeft(Math.max(0, rapidFireUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -472,15 +536,19 @@ export default function GameScreen({
     if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     chargesRef.current -= 1;
     setCharges(chargesRef.current);
+    // Rapid-fire pickup: one charge now fires a pair of bullets side by
+    // side instead of one, same cost — the "double shots" bonus.
+    const rapid = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > Date.now();
+    const offsets = rapid ? [-10, 10] : [0];
     bulletsRef.current = [
       ...bulletsRef.current,
-      {
+      ...offsets.map((dx) => ({
         id: ++idCounterRef.current,
-        x: playerXRef.current,
+        x: playerXRef.current + dx,
         y: playerY - PLAYER_SIZE / 2,
-        owner: 'player',
+        owner: 'player' as const,
         color: COLORS.blue,
-      },
+      })),
     ];
     setBullets(bulletsRef.current);
     playShoot();
@@ -625,6 +693,9 @@ export default function GameScreen({
               />
             ))}
           </View>
+          {rapidFireMsLeft > 0 && (
+            <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
+          )}
         </View>
       </View>
 
@@ -639,6 +710,9 @@ export default function GameScreen({
           ))}
           {bullets.map((b) => (
             <Bullet key={b.id} bullet={b} />
+          ))}
+          {pickups.map((p) => (
+            <Pickup key={p.id} pickup={p} />
           ))}
           {popups.map((p) => (
             <ScorePopup key={p.id} popup={p} />
@@ -851,6 +925,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 5,
     marginLeft: 16,
+  },
+  rapidBadge: {
+    color: COLORS.cyan,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    marginLeft: 12,
+    textShadowColor: COLORS.cyan,
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
   },
   chargePip: {
     width: 10,

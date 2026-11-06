@@ -122,6 +122,20 @@ export function playHit(variant: number) {
   }
 }
 
+// A bright triad layered on top of playHit when a golden double-score star
+// goes down, so the bonus reads as a bonus even with eyes off the score.
+export function playGolden() {
+  [784, 988, 1175].forEach((f, i) => tone(f, { duration: 0.12, type: 'triangle', gainPeak: 0.12, delay: i * 0.05 }));
+}
+
+export function playPickup(kind: 'score' | 'rapidFire') {
+  if (kind === 'rapidFire') {
+    [660, 990, 1320].forEach((f, i) => tone(f, { duration: 0.08, type: 'square', gainPeak: 0.1, delay: i * 0.04 }));
+  } else {
+    tone(1046, { duration: 0.14, type: 'sine', gainPeak: 0.12, freqEnd: 1568 });
+  }
+}
+
 export function playLevelUp() {
   [523, 659, 784].forEach((f, i) => tone(f, { duration: 0.16, type: 'triangle', gainPeak: 0.14, delay: i * 0.08 }));
 }

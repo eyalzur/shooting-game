@@ -135,3 +135,21 @@ export const BOT_LEVELS = [
 // top of its per-level aimJitter amplitude — keeps its aim visibly unsteady
 // rather than snapping to a fixed offset.
 export const BOT_JITTER_WALK_SPEED = 70;
+
+// Enhancements: rare bonus mechanics layered on the base game — golden
+// double-score stars, and pickups that sometimes fall from a broken target
+// for the player to catch. Everything here is gated behind
+// ENHANCEMENTS_ENABLED, so the whole set can be switched off in one place
+// later without touching game-loop logic.
+export const ENHANCEMENTS_ENABLED = true;
+export const GOLDEN_STAR_CHANCE = 0.15;
+export const GOLDEN_SCORE_MULTIPLIER = 2;
+export const PICKUP_DROP_CHANCE = 0.3;
+// Of the pickups that do drop, this fraction are the rapid-fire power-up;
+// the rest are flat bonus score.
+export const PICKUP_RAPID_CHANCE = 0.4;
+export const PICKUP_FALL_SPEED = 170; // px/sec
+export const PICKUP_SIZE = 26;
+export const PICKUP_SCORE_MIN = 10;
+export const PICKUP_SCORE_MAX = 25;
+export const PICKUP_RAPID_DURATION_MS = 7000;
