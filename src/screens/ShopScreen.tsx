@@ -30,7 +30,7 @@ function ShopItemCard({
   const affordable = !maxed && currency >= nextPrice;
 
   return (
-    <View style={styles.card}>
+    <PressableScale onPress={onBuy} disabled={maxed || !affordable} scaleTo={0.97} style={styles.card}>
       <View style={styles.cardIconWrap}>
         <Text style={styles.cardIcon}>{item.icon}</Text>
       </View>
@@ -45,15 +45,10 @@ function ShopItemCard({
         </View>
         <Text style={styles.cardDesc}>{item.description}</Text>
       </View>
-      <PressableScale
-        onPress={onBuy}
-        disabled={maxed || !affordable}
-        scaleTo={0.96}
-        style={[styles.buyButton, maxed && styles.buyButtonOwned, !maxed && !affordable && styles.buyButtonDisabled]}
-      >
+      <View style={[styles.buyButton, maxed && styles.buyButtonOwned, !maxed && !affordable && styles.buyButtonDisabled]}>
         <Text style={styles.buyButtonText}>{maxed ? 'MAXED' : `${CURRENCY_ICON} ${nextPrice}`}</Text>
-      </PressableScale>
-    </View>
+      </View>
+    </PressableScale>
   );
 }
 

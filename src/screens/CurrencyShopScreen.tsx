@@ -36,7 +36,15 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
 
       <View style={styles.packStack}>
         {CURRENCY_PACKS.map((pack) => (
-          <View key={pack.id} style={styles.card}>
+          <PressableScale
+            key={pack.id}
+            onPress={() => {
+              playPurchase();
+              onBuyPack(pack.amount);
+            }}
+            scaleTo={0.97}
+            style={styles.card}
+          >
             <View style={styles.cardIconWrap}>
               <Text style={styles.cardIcon}>{pack.icon}</Text>
             </View>
@@ -46,17 +54,10 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
                 {CURRENCY_ICON} {pack.amount}
               </Text>
             </View>
-            <PressableScale
-              onPress={() => {
-                playPurchase();
-                onBuyPack(pack.amount);
-              }}
-              scaleTo={0.96}
-              style={styles.buyButton}
-            >
+            <View style={styles.buyButton}>
               <Text style={styles.buyButtonText}>{pack.priceLabel}</Text>
-            </PressableScale>
-          </View>
+            </View>
+          </PressableScale>
         ))}
       </View>
     </View>
