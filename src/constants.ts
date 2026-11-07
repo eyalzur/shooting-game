@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.6',
+    date: '2026-11-07',
+    icon: '🔍',
+    title: 'Tap a Player badge to see its real status',
+    bullets: [
+      'Tapping any badge on the Player screen now opens its status — level dots and number, full description, current effect vs. next level, and the price to unlock or upgrade it.',
+    ],
+  },
+  {
     version: '1.13.5',
     date: '2026-11-07',
     icon: '🗂️',
