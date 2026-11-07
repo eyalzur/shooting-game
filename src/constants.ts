@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.2',
+    date: '2026-11-07',
+    icon: '📐',
+    title: 'Shop shows the real numbers behind every upgrade',
+    bullets: [
+      'Every Shop item now shows its actual effect as a number — bullet speed multiplier, move speed multiplier, charge count, drop-chance percent, size multiplier, growth seconds — current value and what the next level gets you.',
+    ],
+  },
+  {
     version: '1.13.1',
     date: '2026-11-07',
     icon: '🧿',
@@ -450,6 +459,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'Shots fly faster, so they reach targets sooner — each level, more so.',
     category: 'weapon',
     prices: [120, 190, 280],
+    statAt: (level) => `×${(level > 0 ? BULLET_SPEED_UPGRADE_MULTS[level - 1] : 1).toFixed(2)} bullet speed`,
   },
   {
     id: 'extraCharge',
@@ -458,6 +468,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'More fire charges in the clip — one more per level.',
     category: 'weapon',
     prices: [130, 220, 340],
+    statAt: (level) => `${FIRE_MAX_CHARGES + (level > 0 ? EXTRA_CHARGE_BONUSES[level - 1] : 0)} charges`,
   },
   {
     id: 'doubleShot',
@@ -466,6 +477,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: `Fires as a pair for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
     category: 'ability',
     prices: [150],
+    statAt: (level) => (level > 0 ? '2 bullets/charge' : '1 bullet/charge'),
   },
   {
     id: 'spreadShot',
@@ -474,6 +486,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: `Fires a 3-way fan for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
     category: 'ability',
     prices: [180],
+    statAt: (level) => (level > 0 ? `3 bullets, ±${SPREAD_ANGLE_DEG}°` : '1 bullet/charge'),
   },
   {
     id: 'moveSpeed',
@@ -482,6 +495,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'Slides to your hold spot faster — each level is a bigger jump.',
     category: 'movement',
     prices: [100, 170, 260],
+    statAt: (level) => `×${(level > 0 ? MOVE_SPEED_UPGRADE_MULTS[level - 1] : 1).toFixed(1)} move speed`,
   },
   {
     id: 'pickupChance',
@@ -490,6 +504,8 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'Better odds that breaking a target drops a pickup — each level, better odds.',
     category: 'luck',
     prices: [160, 260, 400],
+    statAt: (level) =>
+      `${Math.round((PICKUP_DROP_CHANCE + (level > 0 ? PICKUP_CHANCE_UPGRADE_BONUS[level - 1] : 0)) * 100)}% drop chance`,
   },
   {
     id: 'giantSize',
@@ -498,6 +514,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'Growth pickups grow the cannon bigger — a wider catch for whatever falls next. Capped well short of double.',
     category: 'luck',
     prices: [140, 230, 350],
+    statAt: (level) => `×${(level > 0 ? GIANT_SIZE_MULTS[level - 1] : GIANT_BASE_SIZE_MULT).toFixed(1)} size`,
   },
   {
     id: 'giantDuration',
@@ -506,5 +523,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     description: 'Growth pickups last longer before the cannon shrinks back.',
     category: 'luck',
     prices: [110, 180, 270],
+    statAt: (level) =>
+      `${(GIANT_BASE_DURATION_MS + (level > 0 ? GIANT_DURATION_BONUS_MS[level - 1] : 0)) / 1000}s growth`,
   },
 ];

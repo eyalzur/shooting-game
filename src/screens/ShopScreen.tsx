@@ -32,6 +32,8 @@ function ShopItemCard({
   const maxed = level >= maxLevel;
   const nextPrice = item.prices[level];
   const affordable = !maxed && currency >= nextPrice;
+  const nowStat = item.statAt(level);
+  const nextStat = !maxed ? item.statAt(level + 1) : null;
 
   return (
     <PressableScale onPress={onBuy} disabled={maxed || !affordable} scaleTo={0.97} style={styles.card}>
@@ -48,6 +50,16 @@ function ShopItemCard({
           )}
         </View>
         <Text style={styles.cardDesc}>{item.description}</Text>
+        <View style={styles.statRow}>
+          <Text style={[styles.statNow, { color: accentColor }]}>{nowStat}</Text>
+          {nextStat && (
+            <>
+              <Text style={styles.statArrow}>→</Text>
+              <Text style={styles.statNext}>{nextStat}</Text>
+            </>
+          )}
+          {maxed && <Text style={[styles.statMaxTag, { color: accentColor }]}>MAX</Text>}
+        </View>
       </View>
       <View
         style={[
@@ -315,6 +327,30 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     marginTop: 3,
     lineHeight: 14,
+  },
+  statRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+  },
+  statNow: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  statArrow: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+  },
+  statNext: {
+    color: COLORS.textPrimary,
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  statMaxTag: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 1,
   },
   buyButton: {
     paddingVertical: 9,

@@ -97,6 +97,11 @@ export interface ShopItemDef {
   /** Price for each level, index 0 = level 1. Most items have just one —
    * a single-entry array is just a regular one-time purchase. */
   prices: number[];
+  /** The item's real, computed effect at a given owned level (0 = not
+   * owned / baseline) — e.g. "×1.3 move speed" or "45% drop chance" — so
+   * the Shop can show what a purchase actually does instead of just a
+   * level count. */
+  statAt: (level: number) => string;
 }
 
 /** A cosmetic Stardust pack — priceLabel is display-only text (e.g. "$0.99");
