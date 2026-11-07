@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.5',
+    date: '2026-11-07',
+    icon: '🗂️',
+    title: 'Player screen laid out as a compact grid',
+    bullets: [
+      'Categories now sit two to a row in the middle of the screen instead of one long scrolling list — smaller avatar, smaller badges, the whole build fits at a glance.',
+    ],
+  },
+  {
     version: '1.13.4',
     date: '2026-11-07',
     icon: '🐛',

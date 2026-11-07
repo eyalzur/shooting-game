@@ -16,7 +16,7 @@ interface Props {
 
 const RESET_CONFIRM_WINDOW_MS = 3000;
 
-const AVATAR_BOX = 140;
+const AVATAR_BOX = 92;
 
 // A read-only build sheet for the cannon — this game's only "character" —
 // so upgrades bought in the Shop have a place that shows the whole build
@@ -79,7 +79,9 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
             <View key={category.id} style={styles.categoryGroup}>
               <View style={styles.categoryGroupHeader}>
                 <Text style={styles.categoryGroupIcon}>{category.icon}</Text>
-                <Text style={[styles.categoryGroupLabel, { color: category.color }]}>{category.label}</Text>
+                <Text style={[styles.categoryGroupLabel, { color: category.color }]} numberOfLines={1}>
+                  {category.label}
+                </Text>
               </View>
               <View style={styles.badgeRow}>
                 {items.map((item) => {
@@ -203,13 +205,13 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     alignItems: 'center',
-    paddingBottom: 40,
+    paddingBottom: 32,
   },
   avatarBox: {
     width: AVATAR_BOX,
     height: AVATAR_BOX,
-    marginTop: 18,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 14,
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
@@ -223,61 +225,67 @@ const styles = StyleSheet.create({
     opacity: 0.14,
     shadowColor: COLORS.blue,
     shadowOpacity: 1,
-    shadowRadius: 36,
+    shadowRadius: 26,
     shadowOffset: { width: 0, height: 0 },
   },
   categoryGrid: {
-    gap: 22,
-    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    rowGap: 20,
+    columnGap: 10,
     width: '100%',
     maxWidth: 360,
-    paddingHorizontal: 24,
+    paddingHorizontal: 16,
   },
   categoryGroup: {
-    width: '100%',
+    width: 150,
+    alignItems: 'center',
   },
   categoryGroupHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
+    gap: 5,
     marginBottom: 10,
   },
   categoryGroupIcon: {
-    fontSize: 12,
+    fontSize: 11,
   },
   categoryGroupLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
   },
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 14,
+    justifyContent: 'center',
+    gap: 10,
   },
   badgeWrap: {
     alignItems: 'center',
-    width: 56,
+    width: 48,
     position: 'relative',
   },
   badge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeIcon: {
-    fontSize: 24,
+    fontSize: 20,
   },
   badgeCorner: {
     position: 'absolute',
     top: -4,
     right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: COLORS.background,
     borderWidth: 1.5,
     borderColor: COLORS.border,
@@ -285,17 +293,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeCornerText: {
-    fontSize: 8,
+    fontSize: 7,
   },
   badgeCornerCheck: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: 'bold',
     color: COLORS.textPrimary,
   },
   dotsRow: {
     flexDirection: 'row',
     gap: 3,
-    marginTop: 6,
+    marginTop: 5,
   },
   dot: {
     width: 5,
@@ -303,7 +311,7 @@ const styles = StyleSheet.create({
     borderRadius: 2.5,
   },
   shopButton: {
-    marginTop: 24,
+    marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 28,
     borderRadius: 18,
