@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
+import CountdownPulse, { CountdownEvent } from '../components/CountdownPulse';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Pickup from '../components/Pickup';
 import PowerUpBanner, { PowerUpKind } from '../components/PowerUpBanner';
@@ -21,6 +22,7 @@ import {
   BULLET_SPEED_STEP,
   BULLET_SPEED_UPGRADE_MULTS,
   COLORS,
+  COUNTDOWN_MARKS,
   CURRENCY_ICON,
   CURRENCY_NAME,
   DIFFICULTY_MAX_LEVEL,
@@ -82,7 +84,6 @@ import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, 
 import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
-const STATUS_BAR_HEIGHT = 30;
 
 // Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
@@ -264,10 +265,7 @@ export default function GameScreen({
   const giantDurationMs = GIANT_BASE_DURATION_MS + (giantDurationLevel > 0 ? GIANT_DURATION_BONUS_MS[giantDurationLevel - 1] : 0);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  // A dedicated second row for ability badges — reserved space, not
-  // overlaid on the score row, so a badge can never get crowded off the
-  // edge of a narrow phone screen the way cramming it into one row did.
-  const topBarHeight = TOP_BAR_HEIGHT + (ENHANCEMENTS_ENABLED ? STATUS_BAR_HEIGHT : 0) + insets.top;
+  const topBarHeight = TOP_BAR_HEIGHT + insets.top;
   const playAreaHeight = height - topBarHeight;
   const isVsBot = mode === 'vs' && !!bot;
   const hasTimer = matchMs !== null;
@@ -358,6 +356,9 @@ export default function GameScreen({
   const levelUpIdRef = useRef(0);
   const [powerUpEvent, setPowerUpEvent] = useState<{ id: number; kind: PowerUpKind } | null>(null);
   const powerUpIdRef = useRef(0);
+  const [countdownEvent, setCountdownEvent] = useState<CountdownEvent | null>(null);
+  const countdownIdRef = useRef(0);
+  const lastCountdownSecRef = useRef<number | null>(null);
   const scorePulse = useRef(new Animated.Value(1)).current;
   const triggerScorePulse = () => {
     scorePulse.setValue(1);
@@ -466,7 +467,17 @@ export default function GameScreen({
           matchOverRef.current = true;
           setMatchOver(true);
         }
-        setTimeLeft(Math.ceil(timeLeftMs / 1000));
+        const sec = Math.ceil(timeLeftMs / 1000);
+        setTimeLeft(sec);
+        if (
+          sec !== lastCountdownSecRef.current &&
+          COUNTDOWN_MARKS.includes(sec) &&
+          !matchOverRef.current
+        ) {
+          lastCountdownSecRef.current = sec;
+          countdownIdRef.current += 1;
+          setCountdownEvent({ id: countdownIdRef.current, value: sec });
+        }
       }
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
@@ -959,23 +970,6 @@ export default function GameScreen({
             </View>
           </View>
         </View>
-        {ENHANCEMENTS_ENABLED && (
-          <View style={styles.statusBar}>
-            {spreadMsLeft > 0 ? (
-              <Text style={styles.rapidBadge}>🔱×3 {Math.ceil(spreadMsLeft / 1000)}s</Text>
-            ) : (
-              rapidFireMsLeft > 0 && (
-                <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
-              )
-            )}
-            {magnetMsLeft > 0 && (
-              <Text style={styles.magnetBadge}>🧲 {Math.ceil(magnetMsLeft / 1000)}s</Text>
-            )}
-            {giantMsLeft > 0 && (
-              <Text style={styles.giantBadge}>🪐 {Math.ceil(giantMsLeft / 1000)}s</Text>
-            )}
-          </View>
-        )}
       </View>
 
       <View style={{ height: playAreaHeight }}>
@@ -984,6 +978,43 @@ export default function GameScreen({
           {...panResponder.panHandlers}
         >
           <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
+          {ENHANCEMENTS_ENABLED && (spreadMsLeft > 0 || rapidFireMsLeft > 0 || magnetMsLeft > 0 || giantMsLeft > 0) && (
+            <View style={styles.powerStack} pointerEvents="none">
+              {spreadMsLeft > 0 ? (
+                <View style={[styles.powerChip, { borderColor: COLORS.orange }]}>
+                  <Text style={styles.powerChipIcon}>🔱×3</Text>
+                  <Text style={[styles.powerChipTime, { color: COLORS.orange, textShadowColor: COLORS.orange }]}>
+                    {Math.ceil(spreadMsLeft / 1000)}s
+                  </Text>
+                </View>
+              ) : (
+                rapidFireMsLeft > 0 && (
+                  <View style={[styles.powerChip, { borderColor: COLORS.cyan }]}>
+                    <Text style={styles.powerChipIcon}>⚡×2</Text>
+                    <Text style={[styles.powerChipTime, { color: COLORS.cyan, textShadowColor: COLORS.cyan }]}>
+                      {Math.ceil(rapidFireMsLeft / 1000)}s
+                    </Text>
+                  </View>
+                )
+              )}
+              {magnetMsLeft > 0 && (
+                <View style={[styles.powerChip, { borderColor: COLORS.blue }]}>
+                  <Text style={styles.powerChipIcon}>🧲</Text>
+                  <Text style={[styles.powerChipTime, { color: COLORS.blue, textShadowColor: COLORS.blue }]}>
+                    {Math.ceil(magnetMsLeft / 1000)}s
+                  </Text>
+                </View>
+              )}
+              {giantMsLeft > 0 && (
+                <View style={[styles.powerChip, { borderColor: COLORS.stone }]}>
+                  <Text style={styles.powerChipIcon}>🪐</Text>
+                  <Text style={[styles.powerChipTime, { color: COLORS.stone, textShadowColor: COLORS.stone }]}>
+                    {Math.ceil(giantMsLeft / 1000)}s
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
           {targets.map((t, i) => (
             <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
           ))}
@@ -1000,6 +1031,7 @@ export default function GameScreen({
           <Player x={playerXAnim} y={playerY} scale={playerGrowScale} />
           <LevelUpBanner event={levelUpEvent} />
           <PowerUpBanner event={powerUpEvent} />
+          <CountdownPulse event={countdownEvent} />
         </View>
 
         {!isVsBot && matchOver && (
@@ -1175,15 +1207,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 14,
   },
-  statusBar: {
-    height: STATUS_BAR_HEIGHT,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
-    paddingHorizontal: 14,
-  },
   homeButton: {
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -1238,30 +1261,30 @@ const styles = StyleSheet.create({
     gap: 5,
     marginLeft: 16,
   },
-  rapidBadge: {
-    color: COLORS.cyan,
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    textShadowColor: COLORS.cyan,
-    textShadowRadius: 10,
-    textShadowOffset: { width: 0, height: 0 },
+  powerStack: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    gap: 6,
+    zIndex: 5,
   },
-  magnetBadge: {
-    color: COLORS.blue,
-    fontSize: 12,
-    fontWeight: 'bold',
-    letterSpacing: 0.5,
-    textShadowColor: COLORS.blue,
-    textShadowRadius: 10,
-    textShadowOffset: { width: 0, height: 0 },
+  powerChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: 'rgba(16,12,38,0.75)',
   },
-  giantBadge: {
-    color: COLORS.stone,
+  powerChipIcon: {
     fontSize: 12,
+  },
+  powerChipTime: {
+    fontSize: 11,
     fontWeight: 'bold',
     letterSpacing: 0.5,
-    textShadowColor: COLORS.stone,
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },

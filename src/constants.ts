@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.12.0',
+    date: '2026-11-07',
+    icon: '⏳',
+    title: 'Countdown pulse and a cleaner ability stack',
+    bullets: [
+      'A big number pulses on screen as the match clock hits 10, 5, 3, 2, 1.',
+      'Active ability badges (Double Shot, Spread Shot, Magnet, Growth) moved off the top bar to a stacked list on the left side of the play area, each with its own countdown.',
+    ],
+  },
+  {
     version: '1.11.0',
     date: '2026-11-07',
     icon: '🪐',
@@ -337,6 +347,10 @@ export const SPREAD_ANGLE_DEG = 5;
 // 3-pulse ripple (straight pair, then left pair, then right pair) spaced by
 // this many ms, instead of all leaving at once.
 export const COMBO_STAGGER_MS = 70;
+
+// Match timer: a big on-screen pulse fires once per second as the clock
+// crosses these marks, so the final stretch of a timed match feels tense.
+export const COUNTDOWN_MARKS = [10, 5, 3, 2, 1];
 
 // Stardust: the shop currency. Earned mid-match from currency pickups, and
 // as a reward for winning a vs-bot match — kept permanently either way,
