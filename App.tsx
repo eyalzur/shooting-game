@@ -10,7 +10,7 @@ import PlayerScreen from './src/screens/PlayerScreen';
 import ShopScreen from './src/screens/ShopScreen';
 import CurrencyShopScreen from './src/screens/CurrencyShopScreen';
 import VersionLogScreen from './src/screens/VersionLogScreen';
-import { SPLASH_MIN_DURATION_MS } from './src/constants';
+import { SHOP_ITEMS, SPLASH_MIN_DURATION_MS } from './src/constants';
 import {
   getBestScore,
   getCurrency,
@@ -67,9 +67,18 @@ export default function App() {
     });
   };
 
-  const purchaseUpgrade = (id: UpgradeId, price: number) => {
+  // Owning an upgrade is just how many times its id appears in the list —
+  // the price for the *next* level is prices[currentLevel]; once the list
+  // is exhausted (level === prices.length) it's maxed and can't be bought
+  // again.
+  const purchaseUpgrade = (id: UpgradeId) => {
+    const item = SHOP_ITEMS.find((i) => i.id === id);
+    if (!item) return;
+    const level = ownedUpgrades.filter((owned) => owned === id).length;
+    if (level >= item.prices.length) return;
+    const price = item.prices[level];
     setCurrency((prev) => {
-      if (ownedUpgrades.includes(id) || prev < price) return prev;
+      if (prev < price) return prev;
       const next = prev - price;
       saveCurrency(next);
       setOwnedUpgrades((prevOwned) => {

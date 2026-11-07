@@ -48,22 +48,37 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onBack }: Prop
 
       <View style={styles.statList}>
         {SHOP_ITEMS.map((item) => {
-          const owned = ownedUpgrades.includes(item.id);
+          const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+          const owned = level > 0;
+          const maxLevel = item.prices.length;
+          const maxed = level >= maxLevel;
           return (
             <View key={item.id} style={[styles.statRow, owned && styles.statRowOwned]}>
               <View style={[styles.statIconWrap, owned && styles.statIconWrapOwned]}>
                 <Text style={styles.statIcon}>{item.icon}</Text>
               </View>
               <View style={styles.statBody}>
-                <Text style={styles.statName}>{item.name}</Text>
+                <View style={styles.statNameRow}>
+                  <Text style={styles.statName}>{item.name}</Text>
+                  {maxLevel > 1 && (
+                    <Text style={styles.statLevel}>
+                      Lv {level}/{maxLevel}
+                    </Text>
+                  )}
+                </View>
                 <Text style={styles.statDesc}>{item.description}</Text>
               </View>
-              {owned ? (
-                <Text style={styles.statOwned}>✓</Text>
-              ) : (
+              {!owned ? (
                 <Text style={styles.statLocked}>
                   🔒 {CURRENCY_ICON}
-                  {item.price}
+                  {item.prices[0]}
+                </Text>
+              ) : maxed ? (
+                <Text style={styles.statOwned}>✓</Text>
+              ) : (
+                <Text style={styles.statPartial}>
+                  ✓ {CURRENCY_ICON}
+                  {item.prices[level]}
                 </Text>
               )}
             </View>
@@ -187,11 +202,22 @@ const styles = StyleSheet.create({
   statBody: {
     flex: 1,
   },
+  statNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   statName: {
     color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  statLevel: {
+    color: COLORS.cyan,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   statDesc: {
     color: COLORS.textSecondary,
@@ -203,6 +229,11 @@ const styles = StyleSheet.create({
     color: COLORS.blue,
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  statPartial: {
+    color: COLORS.cyan,
+    fontSize: 11,
+    fontWeight: '700',
   },
   statLocked: {
     color: COLORS.textSecondary,

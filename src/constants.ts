@@ -9,6 +9,18 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.10.0',
+    date: '2026-11-07',
+    icon: '📈',
+    title: 'Shop items can now be upgraded',
+    bullets: [
+      'Swift Cannon, Hot Rounds, and Extra Chamber now have 3 levels each — buy again for a bigger effect at a higher price.',
+      'Shop and Player screens show your current level and the price for the next one.',
+      'Ability badges in the top bar now show just the icon and seconds, no label.',
+      'A pickup for a power you already have stacks onto the remaining time instead of being wasted.',
+    ],
+  },
+  {
     version: '1.9.0',
     date: '2026-11-07',
     icon: '⏳',
@@ -286,8 +298,6 @@ export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
 // dirX/dirY) multiplied by the shared bullet speed each tick, so an angled
 // bullet ramps up with difficulty/Hot Rounds exactly like a straight one.
 export const SPREAD_ANGLE_DEG = 9;
-// +1 fire charge in the clip (2 -> 3).
-export const EXTRA_CHARGE_BONUS = 1;
 
 // Stardust: the shop currency. Earned mid-match from currency pickups, and
 // as a reward for winning a vs-bot match — kept permanently either way,
@@ -323,18 +333,24 @@ export const CURRENCY_PACKS: CurrencyPackDef[] = [
 
 // Shop catalog — the player's cannon is the "avatar" here (this game has no
 // other character art), so every upgrade is framed as modifying it. Owned
-// upgrades are stored as a plain id list (see storage.ts), so adding a new
-// row here is enough to make it purchasable; GameScreen reads ids it
+// upgrades are stored as a plain id list (see storage.ts) that allows
+// duplicate entries — level = how many times that id appears — so adding a
+// new row here is enough to make it purchasable; GameScreen reads ids it
 // recognizes and ignores the rest.
-export const MOVE_SPEED_UPGRADE_MULT = 1.6;
-export const BULLET_SPEED_UPGRADE_MULT = 1.35;
+//
+// Three items level up (index = level - 1, so [a,b,c] is the value at
+// levels 1/2/3); Double Shot and Spread Shot stay single-level — their
+// "more power" axis is the owned-window duration, already settled.
+export const MOVE_SPEED_UPGRADE_MULTS = [1.3, 1.6, 2.0];
+export const BULLET_SPEED_UPGRADE_MULTS = [1.2, 1.35, 1.55];
+export const EXTRA_CHARGE_BONUSES = [1, 2, 3];
 
 // Double Shot and Spread Shot are no longer "forever" once bought — owning
 // one activates it for a flat window at the start of every match, the
 // same every time (not a cumulative or per-purchase thing). A mid-match
-// pickup of the same kind extends (never shortens) whatever's left of
-// that window. Swift Cannon / Hot Rounds / Extra Chamber stay permanent —
-// only the fire-pattern upgrades were the "too strong all match" problem.
+// pickup of the same kind stacks on top of whatever's left of that window.
+// Swift Cannon / Hot Rounds / Extra Chamber stay permanent — only the
+// fire-pattern upgrades were the "too strong all match" problem.
 export const OWNED_FIRE_PATTERN_WINDOW_MS = 15000;
 
 export const SHOP_ITEMS: ShopItemDef[] = [
@@ -343,34 +359,34 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     icon: '⚡',
     name: 'DOUBLE SHOT',
     description: `Fires as a pair for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
-    price: 150,
+    prices: [150],
   },
   {
     id: 'moveSpeed',
     icon: '🏎️',
     name: 'SWIFT CANNON',
-    description: 'Slides to your hold spot noticeably faster.',
-    price: 100,
+    description: 'Slides to your hold spot faster — each level is a bigger jump.',
+    prices: [100, 170, 260],
   },
   {
     id: 'bulletSpeed',
     icon: '🔥',
     name: 'HOT ROUNDS',
-    description: 'Shots fly faster, so they reach targets sooner.',
-    price: 120,
+    description: 'Shots fly faster, so they reach targets sooner — each level, more so.',
+    prices: [120, 190, 280],
   },
   {
     id: 'spreadShot',
     icon: '🔱',
     name: 'SPREAD SHOT',
     description: `Fires a 3-way fan for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
-    price: 180,
+    prices: [180],
   },
   {
     id: 'extraCharge',
     icon: '🔋',
     name: 'EXTRA CHAMBER',
-    description: 'One more fire charge in the clip — 3 instead of 2.',
-    price: 130,
+    description: 'More fire charges in the clip — one more per level.',
+    prices: [130, 220, 340],
   },
 ];

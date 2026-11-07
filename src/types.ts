@@ -80,7 +80,9 @@ export interface ShopItemDef {
   icon: string;
   name: string;
   description: string;
-  price: number;
+  /** Price for each level, index 0 = level 1. Most items have just one —
+   * a single-entry array is just a regular one-time purchase. */
+  prices: number[];
 }
 
 /** A cosmetic Stardust pack — priceLabel is display-only text (e.g. "$0.99");

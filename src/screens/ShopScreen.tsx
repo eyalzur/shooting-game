@@ -8,38 +8,50 @@ import { playPurchase, playUiTap } from '../utils/sound';
 interface Props {
   currency: number;
   ownedUpgrades: UpgradeId[];
-  onPurchase: (id: UpgradeId, price: number) => void;
+  onPurchase: (id: UpgradeId) => void;
   onOpenCurrencyShop: () => void;
   onBack: () => void;
 }
 
 function ShopItemCard({
   item,
-  owned,
-  affordable,
+  level,
+  currency,
   onBuy,
 }: {
   item: ShopItemDef;
-  owned: boolean;
-  affordable: boolean;
+  level: number;
+  currency: number;
   onBuy: () => void;
 }) {
+  const maxLevel = item.prices.length;
+  const maxed = level >= maxLevel;
+  const nextPrice = item.prices[level];
+  const affordable = !maxed && currency >= nextPrice;
+
   return (
     <View style={styles.card}>
       <View style={styles.cardIconWrap}>
         <Text style={styles.cardIcon}>{item.icon}</Text>
       </View>
       <View style={styles.cardBody}>
-        <Text style={styles.cardName}>{item.name}</Text>
+        <View style={styles.cardNameRow}>
+          <Text style={styles.cardName}>{item.name}</Text>
+          {maxLevel > 1 && (
+            <Text style={styles.cardLevel}>
+              Lv {level}/{maxLevel}
+            </Text>
+          )}
+        </View>
         <Text style={styles.cardDesc}>{item.description}</Text>
       </View>
       <PressableScale
         onPress={onBuy}
-        disabled={owned || !affordable}
+        disabled={maxed || !affordable}
         scaleTo={0.96}
-        style={[styles.buyButton, owned && styles.buyButtonOwned, !owned && !affordable && styles.buyButtonDisabled]}
+        style={[styles.buyButton, maxed && styles.buyButtonOwned, !maxed && !affordable && styles.buyButtonDisabled]}
       >
-        <Text style={styles.buyButtonText}>{owned ? 'OWNED' : `${CURRENCY_ICON} ${item.price}`}</Text>
+        <Text style={styles.buyButtonText}>{maxed ? 'MAXED' : `${CURRENCY_ICON} ${nextPrice}`}</Text>
       </PressableScale>
     </View>
   );
@@ -86,11 +98,11 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
           <ShopItemCard
             key={item.id}
             item={item}
-            owned={ownedUpgrades.includes(item.id)}
-            affordable={currency >= item.price}
+            level={ownedUpgrades.filter((owned) => owned === item.id).length}
+            currency={currency}
             onBuy={() => {
               playPurchase();
-              onPurchase(item.id, item.price);
+              onPurchase(item.id);
             }}
           />
         ))}
@@ -207,11 +219,22 @@ const styles = StyleSheet.create({
   cardBody: {
     flex: 1,
   },
+  cardNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   cardName: {
     color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 1,
+  },
+  cardLevel: {
+    color: COLORS.cyan,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   cardDesc: {
     color: COLORS.textSecondary,

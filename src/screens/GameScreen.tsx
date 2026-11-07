@@ -18,7 +18,7 @@ import {
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
   BULLET_SPEED_STEP,
-  BULLET_SPEED_UPGRADE_MULT,
+  BULLET_SPEED_UPGRADE_MULTS,
   COLORS,
   CURRENCY_ICON,
   CURRENCY_NAME,
@@ -29,7 +29,7 @@ import {
   DIFFICULTY_SPEED_STEP,
   DIFFICULTY_STEP_HITS,
   ENHANCEMENTS_ENABLED,
-  EXTRA_CHARGE_BONUS,
+  EXTRA_CHARGE_BONUSES,
   FIRE_MAX_CHARGES,
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
@@ -39,7 +39,7 @@ import {
   HIT_BAND,
   LANES,
   MAX_BULLETS,
-  MOVE_SPEED_UPGRADE_MULT,
+  MOVE_SPEED_UPGRADE_MULTS,
   OWNED_FIRE_PATTERN_WINDOW_MS,
   PICKUP_BOMB_CHANCE,
   PICKUP_CURRENCY_CHANCE,
@@ -99,9 +99,16 @@ function getEffectiveLanes(level: number): LaneConfig[] {
   });
 }
 
-function getEffectiveBulletSpeed(level: number, ownsBulletSpeed: boolean) {
+function getEffectiveBulletSpeed(level: number, bulletSpeedLevel: number) {
   const mul = Math.min(BULLET_SPEED_MAX_MULTIPLIER, 1 + level * BULLET_SPEED_STEP);
-  return BULLET_SPEED * mul * (ownsBulletSpeed ? BULLET_SPEED_UPGRADE_MULT : 1);
+  const upgradeMul = bulletSpeedLevel > 0 ? BULLET_SPEED_UPGRADE_MULTS[bulletSpeedLevel - 1] : 1;
+  return BULLET_SPEED * mul * upgradeMul;
+}
+
+// How many times this upgrade id appears in the owned list — that count is
+// its level (0 = not owned).
+function getUpgradeLevel(ownedUpgrades: UpgradeId[], id: UpgradeId) {
+  return ownedUpgrades.filter((owned) => owned === id).length;
 }
 
 function getEffectiveRechargeMs(level: number) {
@@ -234,13 +241,14 @@ export default function GameScreen({
   onEarnCurrency,
 }: Props) {
   const ownsDoubleShot = ownedUpgrades.includes('doubleShot');
-  const ownsMoveSpeed = ownedUpgrades.includes('moveSpeed');
-  const ownsBulletSpeed = ownedUpgrades.includes('bulletSpeed');
   const ownsSpreadShot = ownedUpgrades.includes('spreadShot');
-  const ownsExtraCharge = ownedUpgrades.includes('extraCharge');
+  const moveSpeedLevel = getUpgradeLevel(ownedUpgrades, 'moveSpeed');
+  const bulletSpeedLevel = getUpgradeLevel(ownedUpgrades, 'bulletSpeed');
+  const extraChargeLevel = getUpgradeLevel(ownedUpgrades, 'extraCharge');
   // Owned or not, this is the real cap for the lifetime of this match —
   // upgrades only change between matches (Shop isn't reachable mid-game).
-  const maxCharges = FIRE_MAX_CHARGES + (ENHANCEMENTS_ENABLED && ownsExtraCharge ? EXTRA_CHARGE_BONUS : 0);
+  const maxCharges =
+    FIRE_MAX_CHARGES + (ENHANCEMENTS_ENABLED && extraChargeLevel > 0 ? EXTRA_CHARGE_BONUSES[extraChargeLevel - 1] : 0);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // A dedicated second row for ability badges — reserved space, not
@@ -431,7 +439,7 @@ export default function GameScreen({
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
-      const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, ownsBulletSpeed);
+      const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, bulletSpeedLevel);
       bulletsRef.current = bulletsRef.current
         .map((b) => ({ ...b, x: b.x + b.dirX * bulletSpeed * dt, y: b.y + b.dirY * bulletSpeed * dt }))
         .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
@@ -530,15 +538,18 @@ export default function GameScreen({
                 { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
               ];
             } else if (p.kind === 'rapidFire') {
-              rapidFireUntilRef.current = Math.max(rapidFireUntilRef.current, now + PICKUP_RAPID_DURATION_MS);
+              // Already active (owned window or an earlier pickup)? Stack
+              // on top of what's left instead of just taking the longer of
+              // the two — a pickup you didn't need yet shouldn't feel wasted.
+              rapidFireUntilRef.current = Math.max(rapidFireUntilRef.current, now) + PICKUP_RAPID_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'rapidFire' });
             } else if (p.kind === 'spreadShot') {
-              spreadUntilRef.current = Math.max(spreadUntilRef.current, now + PICKUP_SPREAD_DURATION_MS);
+              spreadUntilRef.current = Math.max(spreadUntilRef.current, now) + PICKUP_SPREAD_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'spreadShot' });
             } else if (p.kind === 'magnet') {
-              magnetUntilRef.current = now + PICKUP_MAGNET_DURATION_MS;
+              magnetUntilRef.current = Math.max(magnetUntilRef.current, now) + PICKUP_MAGNET_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'magnet' });
             } else {
@@ -757,7 +768,7 @@ export default function GameScreen({
     playerXRef.current = clamped;
     const dist = Math.abs(clamped - playerXAnimTargetRef.current);
     playerXAnimTargetRef.current = clamped;
-    const effectiveSpeed = ownsMoveSpeed ? PLAYER_SPEED * MOVE_SPEED_UPGRADE_MULT : PLAYER_SPEED;
+    const effectiveSpeed = moveSpeedLevel > 0 ? PLAYER_SPEED * MOVE_SPEED_UPGRADE_MULTS[moveSpeedLevel - 1] : PLAYER_SPEED;
     const duration = Math.min(
       PLAYER_SLIDE_MAX_MS,
       Math.max(PLAYER_SLIDE_MIN_MS, (dist / effectiveSpeed) * 1000)
@@ -881,14 +892,14 @@ export default function GameScreen({
         {ENHANCEMENTS_ENABLED && (
           <View style={styles.statusBar}>
             {spreadMsLeft > 0 ? (
-              <Text style={styles.rapidBadge}>🔱×3 SPREAD {Math.ceil(spreadMsLeft / 1000)}s</Text>
+              <Text style={styles.rapidBadge}>🔱×3 {Math.ceil(spreadMsLeft / 1000)}s</Text>
             ) : (
               rapidFireMsLeft > 0 && (
-                <Text style={styles.rapidBadge}>⚡×2 DOUBLE {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
+                <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
               )
             )}
             {magnetMsLeft > 0 && (
-              <Text style={styles.magnetBadge}>🧲 MAGNET {Math.ceil(magnetMsLeft / 1000)}s</Text>
+              <Text style={styles.magnetBadge}>🧲 {Math.ceil(magnetMsLeft / 1000)}s</Text>
             )}
           </View>
         )}
