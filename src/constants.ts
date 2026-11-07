@@ -9,6 +9,17 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.9.0',
+    date: '2026-11-07',
+    icon: '⏳',
+    title: 'Double Shot & Spread Shot are no longer forever',
+    bullets: [
+      "Owning Double Shot or Spread Shot now activates it for the first 15s of every match, not the whole match — same window every time.",
+      'Catching the matching pickup mid-match extends your remaining window instead of restarting it short.',
+      'Swift Cannon, Hot Rounds, and Extra Chamber are unaffected — still permanent.',
+    ],
+  },
+  {
     version: '1.8.0',
     date: '2026-11-07',
     icon: '🎯',
@@ -318,12 +329,20 @@ export const CURRENCY_PACKS: CurrencyPackDef[] = [
 export const MOVE_SPEED_UPGRADE_MULT = 1.6;
 export const BULLET_SPEED_UPGRADE_MULT = 1.35;
 
+// Double Shot and Spread Shot are no longer "forever" once bought — owning
+// one activates it for a flat window at the start of every match, the
+// same every time (not a cumulative or per-purchase thing). A mid-match
+// pickup of the same kind extends (never shortens) whatever's left of
+// that window. Swift Cannon / Hot Rounds / Extra Chamber stay permanent —
+// only the fire-pattern upgrades were the "too strong all match" problem.
+export const OWNED_FIRE_PATTERN_WINDOW_MS = 15000;
+
 export const SHOP_ITEMS: ShopItemDef[] = [
   {
     id: 'doubleShot',
     icon: '⚡',
     name: 'DOUBLE SHOT',
-    description: 'Every shot fires as a pair, permanently. Same charge cost.',
+    description: `Fires as a pair for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
     price: 150,
   },
   {
@@ -344,7 +363,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     id: 'spreadShot',
     icon: '🔱',
     name: 'SPREAD SHOT',
-    description: 'Every shot fires a 3-way fan instead of one, permanently. Same charge cost.',
+    description: `Fires a 3-way fan for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
     price: 180,
   },
   {

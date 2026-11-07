@@ -40,6 +40,7 @@ import {
   LANES,
   MAX_BULLETS,
   MOVE_SPEED_UPGRADE_MULT,
+  OWNED_FIRE_PATTERN_WINDOW_MS,
   PICKUP_BOMB_CHANCE,
   PICKUP_CURRENCY_CHANCE,
   PICKUP_CURRENCY_MAX,
@@ -261,10 +262,13 @@ export default function GameScreen({
   const bulletsRef = useRef<BulletState[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const pickupsRef = useRef<PickupState[]>([]);
-  // Rapid-fire / spread-shot pickups: a timestamp each, not a bool, so they
-  // just naturally expire — no separate timer to clear or leak on unmount.
-  const rapidFireUntilRef = useRef(0);
-  const spreadUntilRef = useRef(0);
+  // Double-shot / spread-shot "active until" timestamps — a single
+  // mechanism covers both sources: owning the upgrade seeds the window at
+  // mount (the match-start flat window), and catching the matching pickup
+  // mid-match extends it further (never shortens it, via Math.max below).
+  // Not a bool, so it just naturally expires — no separate timer to clear.
+  const rapidFireUntilRef = useRef(ownsDoubleShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
+  const spreadUntilRef = useRef(ownsSpreadShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const magnetUntilRef = useRef(0);
   // Every Stardust source in a match — pickups now, whatever's added later
   // — should route through earnCurrency below so it's reflected both in the
@@ -526,11 +530,11 @@ export default function GameScreen({
                 { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
               ];
             } else if (p.kind === 'rapidFire') {
-              rapidFireUntilRef.current = now + PICKUP_RAPID_DURATION_MS;
+              rapidFireUntilRef.current = Math.max(rapidFireUntilRef.current, now + PICKUP_RAPID_DURATION_MS);
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'rapidFire' });
             } else if (p.kind === 'spreadShot') {
-              spreadUntilRef.current = now + PICKUP_SPREAD_DURATION_MS;
+              spreadUntilRef.current = Math.max(spreadUntilRef.current, now + PICKUP_SPREAD_DURATION_MS);
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'spreadShot' });
             } else if (p.kind === 'magnet') {
@@ -696,8 +700,8 @@ export default function GameScreen({
     // single straight shot — so owning or picking up more than one of
     // these never stacks into a wall of bullets. Same charge cost either way.
     const now = Date.now();
-    const hasSpread = ENHANCEMENTS_ENABLED && (ownsSpreadShot || spreadUntilRef.current > now);
-    const hasDouble = ENHANCEMENTS_ENABLED && (ownsDoubleShot || rapidFireUntilRef.current > now);
+    const hasSpread = ENHANCEMENTS_ENABLED && spreadUntilRef.current > now;
+    const hasDouble = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > now;
     let shots: { dx: number; dirX: number; dirY: number }[];
     if (hasSpread) {
       const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
@@ -876,12 +880,8 @@ export default function GameScreen({
         </View>
         {ENHANCEMENTS_ENABLED && (
           <View style={styles.statusBar}>
-            {ownsSpreadShot ? (
-              <Text style={styles.rapidBadge}>🔱×3 SPREAD</Text>
-            ) : spreadMsLeft > 0 ? (
+            {spreadMsLeft > 0 ? (
               <Text style={styles.rapidBadge}>🔱×3 SPREAD {Math.ceil(spreadMsLeft / 1000)}s</Text>
-            ) : ownsDoubleShot ? (
-              <Text style={styles.rapidBadge}>⚡×2 DOUBLE</Text>
             ) : (
               rapidFireMsLeft > 0 && (
                 <Text style={styles.rapidBadge}>⚡×2 DOUBLE {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
