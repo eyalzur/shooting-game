@@ -36,7 +36,13 @@ function ShopItemCard({
   const nextStat = !maxed ? item.statAt(level + 1) : null;
 
   return (
-    <PressableScale onPress={onBuy} disabled={maxed || !affordable} scaleTo={0.97} style={styles.card}>
+    <PressableScale
+      onPress={() => {
+        if (!maxed && affordable) onBuy();
+      }}
+      scaleTo={0.97}
+      style={styles.card}
+    >
       <View style={[styles.cardIconWrap, { backgroundColor: `${accentColor}26`, borderColor: `${accentColor}55` }]}>
         <Text style={styles.cardIcon}>{item.icon}</Text>
       </View>

@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.4',
+    date: '2026-11-07',
+    icon: '🐛',
+    title: 'Fixed: tapping a maxed Shop item closed the Shop',
+    bullets: [
+      'Tapping a maxed-out or unaffordable item used to fall through to the screen behind it and back out to Home. It now just does nothing, as it should.',
+    ],
+  },
+  {
     version: '1.13.3',
     date: '2026-11-07',
     icon: '🧲',
