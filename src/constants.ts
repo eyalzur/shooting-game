@@ -1,4 +1,4 @@
-import { ChangelogEntry, CurrencyPackDef, LaneConfig, ShopItemDef } from './types';
+import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopItemDef } from './types';
 
 export const GAME_NAME = 'Nova Strike';
 
@@ -8,6 +8,17 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // never drift out of sync — bump the game by adding a new entry here, not
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.8.0',
+    date: '2026-11-07',
+    icon: '🎯',
+    title: 'Marksmanship stat & balance pass',
+    bullets: [
+      'New Marksmanship stat on the result screen — a rank plus a Stardust bonus scaled by accuracy (always something if you landed a hit).',
+      'Active ability badges moved to their own row in the top bar, so they can no longer get crowded off a narrow screen.',
+      'Spread Shot narrowed — the 3-way fan was too wide.',
+    ],
+  },
   {
     version: '1.7.0',
     date: '2026-11-07',
@@ -263,7 +274,7 @@ export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
 // plus two angled side shots. Bullets carry a unit direction (BulletState
 // dirX/dirY) multiplied by the shared bullet speed each tick, so an angled
 // bullet ramps up with difficulty/Hot Rounds exactly like a straight one.
-export const SPREAD_ANGLE_DEG = 16;
+export const SPREAD_ANGLE_DEG = 9;
 // +1 fire charge in the clip (2 -> 3).
 export const EXTRA_CHARGE_BONUS = 1;
 
@@ -273,6 +284,20 @@ export const EXTRA_CHARGE_BONUS = 1;
 export const CURRENCY_NAME = 'Stardust';
 export const CURRENCY_ICON = '✨';
 export const WIN_CURRENCY_REWARD = 25;
+
+// Marksmanship: an end-of-match accuracy stat (player bullets landed ÷
+// player bullets fired) with a Stardust bonus — scaled by accuracy, but
+// never zero as long as at least one shot landed. Tiers are cosmetic rank
+// flavor on top of the raw percentage, checked high-to-low.
+export const ACCURACY_BONUS_MAX = 40;
+export const ACCURACY_BONUS_MIN = 5;
+export const ACCURACY_TIERS: AccuracyTierDef[] = [
+  { min: 0.9, label: 'DEADEYE', icon: '🎯' },
+  { min: 0.7, label: 'SHARPSHOOTER', icon: '🔫' },
+  { min: 0.5, label: 'MARKSMAN', icon: '🏹' },
+  { min: 0.25, label: 'GUNNER', icon: '💥' },
+  { min: 0, label: 'ROOKIE', icon: '🌱' },
+];
 
 // Currency packs — a cosmetic "buy Stardust" store, built to look and feel
 // like a real purchase flow (pack cards + a price tag). No payment is ever

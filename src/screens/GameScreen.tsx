@@ -11,6 +11,9 @@ import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
+  ACCURACY_BONUS_MAX,
+  ACCURACY_BONUS_MIN,
+  ACCURACY_TIERS,
   BOT_JITTER_WALK_SPEED,
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
@@ -71,6 +74,7 @@ import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, 
 import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
+const STATUS_BAR_HEIGHT = 30;
 
 // Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
@@ -136,6 +140,12 @@ function rollPickupKind(): PickupKind {
     if (roll < cumulative) return kind;
   }
   return 'score';
+}
+
+// ACCURACY_TIERS is ordered highest-min-first, so the first one the
+// accuracy clears is the right rank.
+function getAccuracyTier(accuracy: number) {
+  return ACCURACY_TIERS.find((tier) => accuracy >= tier.min) ?? ACCURACY_TIERS[ACCURACY_TIERS.length - 1];
 }
 
 // Shared bounce/respawn/spin physics, used for both the player's targets
@@ -232,7 +242,10 @@ export default function GameScreen({
   const maxCharges = FIRE_MAX_CHARGES + (ENHANCEMENTS_ENABLED && ownsExtraCharge ? EXTRA_CHARGE_BONUS : 0);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const topBarHeight = TOP_BAR_HEIGHT + insets.top;
+  // A dedicated second row for ability badges — reserved space, not
+  // overlaid on the score row, so a badge can never get crowded off the
+  // edge of a narrow phone screen the way cramming it into one row did.
+  const topBarHeight = TOP_BAR_HEIGHT + (ENHANCEMENTS_ENABLED ? STATUS_BAR_HEIGHT : 0) + insets.top;
   const playAreaHeight = height - topBarHeight;
   const isVsBot = mode === 'vs' && !!bot;
   const hasTimer = matchMs !== null;
@@ -265,6 +278,11 @@ export default function GameScreen({
     onEarnCurrency(amount);
   };
   const scoreRef = useRef(0);
+  // Marksmanship: player bullets fired vs. landed, for the end-of-match
+  // accuracy stat and its Stardust bonus. Bomb-cleared targets don't count
+  // as a "hit" here — no bullet, no shot.
+  const shotsFiredRef = useRef(0);
+  const shotsHitRef = useRef(0);
   const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
   const difficultyLevelRef = useRef(0);
@@ -327,6 +345,13 @@ export default function GameScreen({
       playLose();
     } else {
       playDraw();
+    }
+    // Marksmanship bonus: scales with accuracy, but landing even one shot
+    // always earns at least the floor — accuracy is never a cliff down to
+    // zero.
+    if (ENHANCEMENTS_ENABLED && shotsHitRef.current > 0) {
+      const accuracy = shotsHitRef.current / shotsFiredRef.current;
+      earnCurrency(Math.max(ACCURACY_BONUS_MIN, Math.round(accuracy * ACCURACY_BONUS_MAX)));
     }
     resultEnter.setValue(0);
     if (outcome === 'win') {
@@ -432,6 +457,7 @@ export default function GameScreen({
               if (b.owner === 'player') {
                 scoreRef.current += gain;
                 hitsRef.current += 1;
+                shotsHitRef.current += 1;
                 popupsRef.current = [
                   ...popupsRef.current,
                   { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: t.isGolden ? COLORS.gold : COLORS.blue, createdAt: now },
@@ -700,6 +726,7 @@ export default function GameScreen({
         color: COLORS.blue,
       })),
     ];
+    if (!matchOverRef.current) shotsFiredRef.current += shots.length;
     setBullets(bulletsRef.current);
     playShoot();
   };
@@ -801,64 +828,70 @@ export default function GameScreen({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.topBar, { height: topBarHeight, paddingTop: insets.top }]}>
-        <PressableScale
-          onPress={() => {
-            playUiTap();
-            onExit(scoreRef.current);
-          }}
-          style={styles.homeButton}
-        >
-          <Text style={styles.homeButtonText}>⟵ HOME</Text>
-        </PressableScale>
-        <PressableScale
-          onPress={() => {
-            onToggleSound();
-            if (!soundOn) playUiTap();
-          }}
-          style={styles.soundToggle}
-        >
-          <Text style={styles.homeButtonText}>{soundOn ? '🔊' : '🔇'}</Text>
-        </PressableScale>
-        <View style={styles.statsRow}>
-          <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
-          <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
-            {displayScore}
-          </Animated.Text>
-          {hasTimer && <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>}
-          {isVsBot && bot ? (
-            <Text style={[styles.levelLabel, { color: bot.color }]}>
-              {bot.name.toUpperCase()} {botDisplayScore}
-            </Text>
-          ) : (
-            <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
-          )}
-          <View style={styles.chargeRow}>
-            {Array.from({ length: maxCharges }, (_, i) => (
-              <View
-                key={i}
-                style={[
-                  styles.chargePip,
-                  { opacity: Math.max(0.18, Math.min(1, charges - i)) },
-                ]}
-              />
-            ))}
+      <View style={[styles.topBarWrap, { height: topBarHeight, paddingTop: insets.top }]}>
+        <View style={styles.topBar}>
+          <PressableScale
+            onPress={() => {
+              playUiTap();
+              onExit(scoreRef.current);
+            }}
+            style={styles.homeButton}
+          >
+            <Text style={styles.homeButtonText}>⟵ HOME</Text>
+          </PressableScale>
+          <PressableScale
+            onPress={() => {
+              onToggleSound();
+              if (!soundOn) playUiTap();
+            }}
+            style={styles.soundToggle}
+          >
+            <Text style={styles.homeButtonText}>{soundOn ? '🔊' : '🔇'}</Text>
+          </PressableScale>
+          <View style={styles.statsRow}>
+            <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
+            <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
+              {displayScore}
+            </Animated.Text>
+            {hasTimer && <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>}
+            {isVsBot && bot ? (
+              <Text style={[styles.levelLabel, { color: bot.color }]}>
+                {bot.name.toUpperCase()} {botDisplayScore}
+              </Text>
+            ) : (
+              <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+            )}
+            <View style={styles.chargeRow}>
+              {Array.from({ length: maxCharges }, (_, i) => (
+                <View
+                  key={i}
+                  style={[
+                    styles.chargePip,
+                    { opacity: Math.max(0.18, Math.min(1, charges - i)) },
+                  ]}
+                />
+              ))}
+            </View>
           </View>
-          {ownsSpreadShot ? (
-            <Text style={styles.rapidBadge}>🔱×3</Text>
-          ) : spreadMsLeft > 0 ? (
-            <Text style={styles.rapidBadge}>🔱×3 {Math.ceil(spreadMsLeft / 1000)}s</Text>
-          ) : ownsDoubleShot ? (
-            <Text style={styles.rapidBadge}>⚡×2</Text>
-          ) : (
-            rapidFireMsLeft > 0 && (
-              <Text style={styles.rapidBadge}>⚡×2 {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
-            )
-          )}
-          {magnetMsLeft > 0 && (
-            <Text style={styles.magnetBadge}>🧲 {Math.ceil(magnetMsLeft / 1000)}s</Text>
-          )}
         </View>
+        {ENHANCEMENTS_ENABLED && (
+          <View style={styles.statusBar}>
+            {ownsSpreadShot ? (
+              <Text style={styles.rapidBadge}>🔱×3 SPREAD</Text>
+            ) : spreadMsLeft > 0 ? (
+              <Text style={styles.rapidBadge}>🔱×3 SPREAD {Math.ceil(spreadMsLeft / 1000)}s</Text>
+            ) : ownsDoubleShot ? (
+              <Text style={styles.rapidBadge}>⚡×2 DOUBLE</Text>
+            ) : (
+              rapidFireMsLeft > 0 && (
+                <Text style={styles.rapidBadge}>⚡×2 DOUBLE {Math.ceil(rapidFireMsLeft / 1000)}s</Text>
+              )
+            )}
+            {magnetMsLeft > 0 && (
+              <Text style={styles.magnetBadge}>🧲 MAGNET {Math.ceil(magnetMsLeft / 1000)}s</Text>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={{ height: playAreaHeight }}>
@@ -895,6 +928,13 @@ export default function GameScreen({
                   <Text style={styles.resultValue}>{scoreRef.current}</Text>
                 </View>
               </View>
+              {ENHANCEMENTS_ENABLED && shotsFiredRef.current > 0 && (
+                <Text style={styles.resultAccuracy}>
+                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).icon} MARKSMANSHIP{' '}
+                  {Math.round((shotsHitRef.current / shotsFiredRef.current) * 100)}% ·{' '}
+                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).label}
+                </Text>
+              )}
               {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
                 <Text style={styles.resultCurrency}>
                   {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
@@ -992,6 +1032,13 @@ export default function GameScreen({
                   </Text>
                 </View>
               </View>
+              {ENHANCEMENTS_ENABLED && shotsFiredRef.current > 0 && (
+                <Text style={styles.resultAccuracy}>
+                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).icon} MARKSMANSHIP{' '}
+                  {Math.round((shotsHitRef.current / shotsFiredRef.current) * 100)}% ·{' '}
+                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).label}
+                </Text>
+              )}
               {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
                 <Text style={styles.resultCurrency}>
                   {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
@@ -1030,11 +1077,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  topBar: {
-    height: TOP_BAR_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
+  topBarWrap: {
+    flexDirection: 'column',
     backgroundColor: COLORS.panel,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.border,
@@ -1044,6 +1088,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
+  },
+  topBar: {
+    height: TOP_BAR_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+  },
+  statusBar: {
+    height: STATUS_BAR_HEIGHT,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    paddingHorizontal: 14,
   },
   homeButton: {
     paddingVertical: 6,
@@ -1104,7 +1163,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 0.5,
-    marginLeft: 12,
     textShadowColor: COLORS.cyan,
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
@@ -1114,7 +1172,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
     letterSpacing: 0.5,
-    marginLeft: 8,
     textShadowColor: COLORS.blue,
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
@@ -1219,12 +1276,21 @@ const styles = StyleSheet.create({
     textShadowRadius: 14,
     textShadowOffset: { width: 0, height: 0 },
   },
+  resultAccuracy: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    marginTop: -16,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
   resultCurrency: {
     color: COLORS.purple,
     fontSize: 13,
     fontWeight: '700',
     letterSpacing: 0.5,
-    marginTop: -16,
+    marginTop: 6,
     marginBottom: 20,
     textShadowColor: COLORS.purple,
     textShadowRadius: 10,

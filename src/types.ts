@@ -93,6 +93,14 @@ export interface CurrencyPackDef {
   priceLabel: string;
 }
 
+/** A rank bracket for the end-of-match Marksmanship stat — tiers are
+ * checked high-to-low, first `min` the accuracy clears wins. */
+export interface AccuracyTierDef {
+  min: number;
+  label: string;
+  icon: string;
+}
+
 /** One release note on the changelog screen. icon is a big emoji shown like
  * an illustration (this project has no image-asset pipeline), not just a
  * bullet marker. */
