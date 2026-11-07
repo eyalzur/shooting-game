@@ -157,29 +157,33 @@ function ShopItemCard({
   );
 }
 
-function CategoryTile({
+function CategoryIconButton({
   category,
-  ownedCount,
-  totalCount,
+  active,
   onPress,
 }: {
   category: (typeof SHOP_CATEGORIES)[number];
-  ownedCount: number;
-  totalCount: number;
+  active: boolean;
   onPress: () => void;
 }) {
   return (
-    <PressableScale
-      onPress={onPress}
-      scaleTo={0.96}
-      style={[styles.categoryTile, { borderColor: `${category.color}55`, backgroundColor: `${category.color}14` }]}
-    >
-      <Text style={styles.categoryTileIcon}>{category.icon}</Text>
-      <Text style={[styles.categoryTileLabel, { color: category.color }]} numberOfLines={1}>
+    <PressableScale onPress={onPress} scaleTo={0.92} style={styles.categoryIconWrap}>
+      <View
+        style={[
+          styles.categoryIconCircle,
+          {
+            borderColor: active ? category.color : `${category.color}55`,
+            backgroundColor: active ? `${category.color}33` : `${category.color}14`,
+          },
+        ]}
+      >
+        <Text style={styles.categoryIconEmoji}>{category.icon}</Text>
+      </View>
+      <Text
+        style={[styles.categoryIconLabel, { color: active ? category.color : COLORS.textSecondary }]}
+        numberOfLines={1}
+      >
         {category.label}
-      </Text>
-      <Text style={styles.categoryTileCount}>
-        {ownedCount}/{totalCount}
       </Text>
     </PressableScale>
   );
@@ -243,51 +247,43 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
         <Text style={styles.getMoreButtonText}>💰 GET MORE {CURRENCY_ICON}</Text>
       </PressableScale>
 
+      <View style={styles.categoryRow}>
+        {SHOP_CATEGORIES.map((category) => (
+          <CategoryIconButton
+            key={category.id}
+            category={category}
+            active={openCategoryId === category.id}
+            onPress={() => {
+              playUiTap();
+              setOpenCategoryId((prev) => (prev === category.id ? null : category.id));
+            }}
+          />
+        ))}
+      </View>
+
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {!openCategory ? (
-          <>
-            {globalSuggestions.length > 0 && (
-              <View style={styles.suggestBlock}>
-                <Text style={styles.suggestHeading}>SUGGESTED FOR YOU</Text>
-                <View style={styles.suggestRow}>
-                  {globalSuggestions.map(({ item, level }, i) => {
-                    const category = SHOP_CATEGORIES.find((c) => c.id === item.category)!;
-                    return (
-                      <SuggestionCard
-                        key={item.id}
-                        item={item}
-                        level={level}
-                        currency={currency}
-                        tier={SUGGESTION_TIERS[i]}
-                        categoryColor={category.color}
-                        onBuy={() => handleBuy(item, level, category.color)}
-                      />
-                    );
-                  })}
-                </View>
+          globalSuggestions.length > 0 && (
+            <View style={styles.suggestBlock}>
+              <Text style={styles.suggestHeading}>SUGGESTED FOR YOU</Text>
+              <View style={styles.suggestRow}>
+                {globalSuggestions.map(({ item, level }, i) => {
+                  const category = SHOP_CATEGORIES.find((c) => c.id === item.category)!;
+                  return (
+                    <SuggestionCard
+                      key={item.id}
+                      item={item}
+                      level={level}
+                      currency={currency}
+                      tier={SUGGESTION_TIERS[i]}
+                      categoryColor={category.color}
+                      onBuy={() => handleBuy(item, level, category.color)}
+                    />
+                  );
+                })}
               </View>
-            )}
-
-            <View style={styles.categoryGrid}>
-              {SHOP_CATEGORIES.map((category) => {
-                const items = SHOP_ITEMS.filter((item) => item.category === category.id);
-                const ownedCount = items.filter((item) => ownedUpgrades.includes(item.id)).length;
-                return (
-                  <CategoryTile
-                    key={category.id}
-                    category={category}
-                    ownedCount={ownedCount}
-                    totalCount={items.length}
-                    onPress={() => {
-                      playUiTap();
-                      setOpenCategoryId(category.id);
-                    }}
-                  />
-                );
-              })}
             </View>
-            <Text style={styles.comingSoon}>More upgrades coming soon.</Text>
-          </>
+          )
         ) : (
           <>
             {categorySuggestions.length > 0 && (
@@ -360,10 +356,10 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.textPrimary,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
     letterSpacing: 2,
-    marginTop: 64,
+    marginTop: 58,
     textShadowColor: COLORS.purple,
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
@@ -372,8 +368,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 12,
-    marginBottom: 14,
+    marginTop: 8,
+    marginBottom: 10,
   },
   getMoreButton: {
     paddingVertical: 6,
@@ -382,7 +378,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,210,90,0.4)',
     backgroundColor: 'rgba(255,210,90,0.1)',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   getMoreButtonText: {
     color: COLORS.gold,
@@ -418,14 +414,14 @@ const styles = StyleSheet.create({
   suggestBlock: {
     width: '100%',
     maxWidth: 360,
-    marginBottom: 22,
+    marginBottom: 16,
   },
   suggestHeading: {
     color: COLORS.textSecondary,
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: 10,
+    letterSpacing: 1.5,
+    marginBottom: 8,
     textAlign: 'center',
   },
   suggestRow: {
@@ -435,7 +431,7 @@ const styles = StyleSheet.create({
   suggestCard: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 16,
     borderWidth: 1.5,
@@ -484,34 +480,33 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: 'bold',
   },
-  categoryGrid: {
+  categoryRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
     width: '100%',
-    maxWidth: 360,
-    gap: 12,
+    maxWidth: 320,
+    gap: 22,
+    marginBottom: 18,
   },
-  categoryTile: {
-    width: 168,
-    paddingVertical: 20,
+  categoryIconWrap: {
     alignItems: 'center',
-    borderRadius: 20,
+    width: 56,
+  },
+  categoryIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  categoryTileIcon: {
-    fontSize: 24,
+  categoryIconEmoji: {
+    fontSize: 22,
   },
-  categoryTileLabel: {
-    fontSize: 12.5,
+  categoryIconLabel: {
+    fontSize: 8,
     fontWeight: '800',
-    letterSpacing: 1.5,
-    marginTop: 8,
-  },
-  categoryTileCount: {
-    color: COLORS.textSecondary,
-    fontSize: 10.5,
-    fontWeight: '600',
+    letterSpacing: 0.5,
     marginTop: 4,
   },
   itemStack: {
@@ -616,11 +611,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
     textAlign: 'center',
-  },
-  comingSoon: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    marginTop: 16,
-    letterSpacing: 0.5,
   },
 });

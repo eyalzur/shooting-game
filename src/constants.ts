@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.15.1',
+    date: '2026-11-07',
+    icon: '🧭',
+    title: 'Shop fits on one screen now',
+    bullets: [
+      'Categories are a small, always-visible icon row above the suggestions, not big tiles — tap one to switch straight to it, tap it again to go back to the overview.',
+      'The Shop home screen (categories + suggestions) now fits in view without scrolling.',
+    ],
+  },
+  {
     version: '1.15.0',
     date: '2026-11-07',
     icon: '🗺️',
