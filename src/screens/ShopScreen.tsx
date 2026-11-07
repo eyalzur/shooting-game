@@ -11,10 +11,13 @@ import { playPurchase, playUiTap } from '../utils/sound';
 // Every category already owns a hue (weapon=red, ability=pink, movement=
 // green, luck=gold), so "can't afford" needs a fifth, distinct color or it
 // blends straight into whichever category happens to be red/orange-ish.
-// Blue isn't used by any category or tier label, and reads as "locked/cold"
-// rather than another warm "go" color.
-const UNAFFORDABLE_COLOR = COLORS.blue;
-const UNAFFORDABLE_TEXT_COLOR = shadeColor(COLORS.blue, 35);
+// Not blue either — that's the player's own team color everywhere else in
+// the game (cannon, bullets, score), so it reads as "you/your team", not
+// "locked". Cyan isn't claimed by any category or team color (it is also
+// the "GOOD VALUE" tier label's color, but that's a separate badge, not a
+// state, so the two never need to disagree on the same card).
+const UNAFFORDABLE_COLOR = COLORS.cyan;
+const UNAFFORDABLE_TEXT_COLOR = shadeColor(COLORS.cyan, 25);
 
 interface Props {
   currency: number;
