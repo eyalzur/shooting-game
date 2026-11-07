@@ -707,14 +707,21 @@ export default function GameScreen({
     if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     chargesRef.current -= 1;
     setCharges(chargesRef.current);
-    // One fire pattern applies at a time — spread beats double beats a
-    // single straight shot — so owning or picking up more than one of
-    // these never stacks into a wall of bullets. Same charge cost either way.
+    // Spread and double stack: both active fires 3 angled lanes, each as a
+    // side-by-side pair (6 bullets). Either alone keeps its own pattern.
+    // Same charge cost regardless.
     const now = Date.now();
     const hasSpread = ENHANCEMENTS_ENABLED && spreadUntilRef.current > now;
     const hasDouble = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > now;
     let shots: { dx: number; dirX: number; dirY: number }[];
-    if (hasSpread) {
+    if (hasSpread && hasDouble) {
+      const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
+      const lanes = [-rad, 0, rad].map((a) => ({ dirX: -Math.sin(-a), dirY: -Math.cos(-a) }));
+      shots = lanes.flatMap((l) => [
+        { dx: -10, dirX: l.dirX, dirY: l.dirY },
+        { dx: 10, dirX: l.dirX, dirY: l.dirY },
+      ]);
+    } else if (hasSpread) {
       const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
       shots = [
         { dx: 0, dirX: -Math.sin(rad), dirY: -Math.cos(rad) },
