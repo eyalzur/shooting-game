@@ -1,4 +1,4 @@
-import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopItemDef } from './types';
+import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopCategory, ShopItemDef } from './types';
 
 export const GAME_NAME = 'Nova Strike';
 
@@ -8,6 +8,19 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // never drift out of sync — bump the game by adding a new entry here, not
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.13.0',
+    date: '2026-11-07',
+    icon: '🍀',
+    title: 'Shop categories, a Luck upgrade, and tap-to-go-back',
+    bullets: [
+      'New Lucky Strikes upgrade: better odds that breaking a target drops a pickup.',
+      'Shop and Player screens now group upgrades by category — Firepower, Abilities, Movement, Luck — shown a different way on each screen.',
+      'Tapping anywhere outside a button now backs out to the previous screen, on every menu.',
+      'The purchase celebration now dims the background behind it instead of floating over bare screen.',
+      'The countdown pulse uses a blocky sci-fi font and shatters into particles instead of just fading.',
+    ],
+  },
   {
     version: '1.12.0',
     date: '2026-11-07',
@@ -306,6 +319,9 @@ export const ENHANCEMENTS_ENABLED = true;
 export const GOLDEN_STAR_CHANCE = 0.15;
 export const GOLDEN_SCORE_MULTIPLIER = 2;
 export const PICKUP_DROP_CHANCE = 0.35;
+// Lucky Strikes upgrade: added on top of PICKUP_DROP_CHANCE per level,
+// capped well short of a guaranteed drop so there's still some luck to it.
+export const PICKUP_CHANCE_UPGRADE_BONUS = [0.1, 0.18, 0.28];
 // Of the pickups that do drop, these chances decide the kind — the
 // remaining share is a flat score bonus.
 export const PICKUP_CURRENCY_CHANCE = 0.25;
@@ -406,47 +422,71 @@ export const EXTRA_CHARGE_BONUSES = [1, 2, 3];
 // fire-pattern upgrades were the "too strong all match" problem.
 export const OWNED_FIRE_PATTERN_WINDOW_MS = 15000;
 
+// Metadata for each ShopCategory, in display order — Shop and Player screens
+// both iterate this to group items the same way, so the two screens read as
+// the same taxonomy even though they present it differently.
+export const SHOP_CATEGORIES: { id: ShopCategory; icon: string; label: string; color: string }[] = [
+  { id: 'weapon', icon: '🔫', label: 'FIREPOWER', color: COLORS.red },
+  { id: 'ability', icon: '✨', label: 'ABILITIES', color: COLORS.pink },
+  { id: 'movement', icon: '💨', label: 'MOVEMENT', color: COLORS.green },
+  { id: 'luck', icon: '🍀', label: 'LUCK', color: COLORS.gold },
+];
+
 export const SHOP_ITEMS: ShopItemDef[] = [
-  {
-    id: 'doubleShot',
-    icon: '⚡',
-    name: 'DOUBLE SHOT',
-    description: `Fires as a pair for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
-    prices: [150],
-  },
-  {
-    id: 'moveSpeed',
-    icon: '🏎️',
-    name: 'SWIFT CANNON',
-    description: 'Slides to your hold spot faster — each level is a bigger jump.',
-    prices: [100, 170, 260],
-  },
   {
     id: 'bulletSpeed',
     icon: '🔥',
     name: 'HOT ROUNDS',
     description: 'Shots fly faster, so they reach targets sooner — each level, more so.',
+    category: 'weapon',
     prices: [120, 190, 280],
-  },
-  {
-    id: 'spreadShot',
-    icon: '🔱',
-    name: 'SPREAD SHOT',
-    description: `Fires a 3-way fan for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
-    prices: [180],
   },
   {
     id: 'extraCharge',
     icon: '🔋',
     name: 'EXTRA CHAMBER',
     description: 'More fire charges in the clip — one more per level.',
+    category: 'weapon',
     prices: [130, 220, 340],
+  },
+  {
+    id: 'doubleShot',
+    icon: '⚡',
+    name: 'DOUBLE SHOT',
+    description: `Fires as a pair for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
+    category: 'ability',
+    prices: [150],
+  },
+  {
+    id: 'spreadShot',
+    icon: '🔱',
+    name: 'SPREAD SHOT',
+    description: `Fires a 3-way fan for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match. Same charge cost.`,
+    category: 'ability',
+    prices: [180],
+  },
+  {
+    id: 'moveSpeed',
+    icon: '🏎️',
+    name: 'SWIFT CANNON',
+    description: 'Slides to your hold spot faster — each level is a bigger jump.',
+    category: 'movement',
+    prices: [100, 170, 260],
+  },
+  {
+    id: 'pickupChance',
+    icon: '🎲',
+    name: 'LUCKY STRIKES',
+    description: 'Better odds that breaking a target drops a pickup — each level, better odds.',
+    category: 'luck',
+    prices: [160, 260, 400],
   },
   {
     id: 'giantSize',
     icon: '🪐',
     name: 'COLOSSUS CORE',
     description: 'Growth pickups grow the cannon bigger — a wider catch for whatever falls next. Capped well short of double.',
+    category: 'luck',
     prices: [140, 230, 350],
   },
   {
@@ -454,6 +494,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     icon: '⏱️',
     name: 'LASTING GROWTH',
     description: 'Growth pickups last longer before the cannon shrinks back.',
+    category: 'luck',
     prices: [110, 180, 270],
   },
 ];

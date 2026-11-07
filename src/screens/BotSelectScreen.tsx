@@ -40,7 +40,13 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
   const { width, height } = useWindowDimensions();
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Pressable
+      style={[styles.container, { width, height }]}
+      onPress={() => {
+        playUiTap();
+        onBack();
+      }}
+    >
       <Starfield width={width} height={height} level={0} />
 
       <PressableScale
@@ -69,7 +75,7 @@ export default function BotSelectScreen({ onSelect, onBack }: Props) {
           />
         ))}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

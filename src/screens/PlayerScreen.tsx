@@ -1,9 +1,9 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Player from '../components/Player';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, PLAYER_SIZE, SHOP_ITEMS } from '../constants';
+import { COLORS, CURRENCY_ICON, PLAYER_SIZE, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
 import { UpgradeId } from '../types';
 import { playUiTap } from '../utils/sound';
 
@@ -41,7 +41,13 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
   };
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Pressable
+      style={[styles.container, { width, height }]}
+      onPress={() => {
+        playUiTap();
+        onBack();
+      }}
+    >
       <Starfield width={width} height={height} level={0} />
 
       <PressableScale
@@ -59,6 +65,7 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
         {ownedCount}/{SHOP_ITEMS.length} UPGRADES EQUIPPED
       </Text>
 
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
       <View style={styles.avatarBox}>
         <View style={styles.avatarGlow} />
         <Player x={AVATAR_BOX / 2} y={AVATAR_BOX / 2 + PLAYER_SIZE / 4} />
@@ -70,14 +77,25 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
           const owned = level > 0;
           const maxLevel = item.prices.length;
           const maxed = level >= maxLevel;
+          const category = SHOP_CATEGORIES.find((c) => c.id === item.category)!;
           return (
-            <View key={item.id} style={[styles.statRow, owned && styles.statRowOwned]}>
+            <View
+              key={item.id}
+              style={[
+                styles.statRow,
+                owned && styles.statRowOwned,
+                { borderLeftWidth: 4, borderLeftColor: category.color },
+              ]}
+            >
               <View style={[styles.statIconWrap, owned && styles.statIconWrapOwned]}>
                 <Text style={styles.statIcon}>{item.icon}</Text>
               </View>
               <View style={styles.statBody}>
                 <View style={styles.statNameRow}>
                   <Text style={styles.statName}>{item.name}</Text>
+                  <View style={[styles.categoryTag, { borderColor: `${category.color}66` }]}>
+                    <Text style={styles.categoryTagIcon}>{category.icon}</Text>
+                  </View>
                   {maxLevel > 1 && (
                     <Text style={styles.statLevel}>
                       Lv {level}/{maxLevel}
@@ -122,7 +140,8 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
           {confirmingReset ? '⚠️ TAP AGAIN TO CONFIRM' : '🗑️ RESET INVENTORY'}
         </Text>
       </PressableScale>
-    </View>
+      </ScrollView>
+    </Pressable>
   );
 }
 
@@ -133,7 +152,6 @@ const styles = StyleSheet.create({
     left: 0,
     backgroundColor: COLORS.background,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   backButton: {
     position: 'absolute',
@@ -157,6 +175,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     letterSpacing: 2,
+    marginTop: 64,
     textShadowColor: COLORS.blue,
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
@@ -166,6 +185,13 @@ const styles = StyleSheet.create({
     fontSize: 11,
     letterSpacing: 1.5,
     marginTop: 6,
+  },
+  scroll: {
+    width: '100%',
+  },
+  scrollContent: {
+    alignItems: 'center',
+    paddingBottom: 40,
   },
   avatarBox: {
     width: AVATAR_BOX,
@@ -245,6 +271,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  categoryTag: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryTagIcon: {
+    fontSize: 9,
   },
   statDesc: {
     color: COLORS.textSecondary,

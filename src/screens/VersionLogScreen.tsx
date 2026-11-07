@@ -1,4 +1,4 @@
-import { ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
 import { APP_VERSION, CHANGELOG, COLORS } from '../constants';
@@ -12,7 +12,13 @@ export default function VersionLogScreen({ onBack }: Props) {
   const { width, height } = useWindowDimensions();
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Pressable
+      style={[styles.container, { width, height }]}
+      onPress={() => {
+        playUiTap();
+        onBack();
+      }}
+    >
       <Starfield width={width} height={height} level={0} />
 
       <PressableScale
@@ -53,7 +59,7 @@ export default function VersionLogScreen({ onBack }: Props) {
           </View>
         ))}
       </ScrollView>
-    </View>
+    </Pressable>
   );
 }
 

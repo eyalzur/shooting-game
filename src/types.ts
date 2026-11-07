@@ -80,13 +80,20 @@ export type UpgradeId =
   | 'spreadShot'
   | 'extraCharge'
   | 'giantSize'
-  | 'giantDuration';
+  | 'giantDuration'
+  | 'pickupChance';
+
+/** Groups shop items by what they affect, so the Shop and Player screens can
+ * present "a weapon upgrade" differently from "a luck upgrade" instead of
+ * one undifferentiated list. */
+export type ShopCategory = 'weapon' | 'ability' | 'movement' | 'luck';
 
 export interface ShopItemDef {
   id: UpgradeId;
   icon: string;
   name: string;
   description: string;
+  category: ShopCategory;
   /** Price for each level, index 0 = level 1. Most items have just one —
    * a single-entry array is just a regular one-time purchase. */
   prices: number[];

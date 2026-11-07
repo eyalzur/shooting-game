@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
@@ -18,7 +18,13 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
   const burstIdRef = useRef(0);
 
   return (
-    <View style={[styles.container, { width, height }]}>
+    <Pressable
+      style={[styles.container, { width, height }]}
+      onPress={() => {
+        playUiTap();
+        onBack();
+      }}
+    >
       <Starfield width={width} height={height} level={0} />
 
       <PressableScale
@@ -73,7 +79,7 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
         ))}
       </View>
       <PurchaseBurst event={burstEvent} />
-    </View>
+    </Pressable>
   );
 }
 

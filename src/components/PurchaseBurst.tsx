@@ -25,6 +25,7 @@ const CONFETTI_COLORS = [COLORS.gold, COLORS.cyan, COLORS.pink, COLORS.purple, C
 // like a reward, not just a successful tap.
 export default function PurchaseBurst({ event }: Props) {
   const [shown, setShown] = useState<PurchaseBurstEvent | null>(null);
+  const scrim = useRef(new Animated.Value(0)).current;
   const burst = useRef(new Animated.Value(0)).current;
   const ring = useRef(new Animated.Value(0)).current;
   const iconScale = useRef(new Animated.Value(0)).current;
@@ -35,11 +36,18 @@ export default function PurchaseBurst({ event }: Props) {
   useEffect(() => {
     if (!event) return;
     setShown(event);
+    scrim.setValue(0);
     burst.setValue(0);
     ring.setValue(0);
     iconScale.setValue(0.3);
     iconOpacity.setValue(0);
     confetti.setValue(0);
+
+    Animated.sequence([
+      Animated.timing(scrim, { toValue: 1, duration: 150, useNativeDriver: true }),
+      Animated.delay(VISIBLE_MS - 150 - 300),
+      Animated.timing(scrim, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
 
     Animated.timing(burst, {
       toValue: 1,
@@ -76,7 +84,7 @@ export default function PurchaseBurst({ event }: Props) {
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current);
     };
-  }, [event, burst, ring, iconScale, iconOpacity, confetti]);
+  }, [event, scrim, burst, ring, iconScale, iconOpacity, confetti]);
 
   if (!shown) return null;
   const content = shown;
@@ -89,6 +97,7 @@ export default function PurchaseBurst({ event }: Props) {
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <Animated.View style={[StyleSheet.absoluteFill, styles.scrim, { opacity: scrim }]} />
       <View style={styles.center}>
         <Animated.View
           style={[
@@ -135,6 +144,9 @@ export default function PurchaseBurst({ event }: Props) {
 }
 
 const styles = StyleSheet.create({
+  scrim: {
+    backgroundColor: 'rgba(5,3,15,0.86)',
+  },
   center: {
     flex: 1,
     alignItems: 'center',

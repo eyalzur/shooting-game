@@ -49,6 +49,7 @@ import {
   MOVE_SPEED_UPGRADE_MULTS,
   OWNED_FIRE_PATTERN_WINDOW_MS,
   PICKUP_BOMB_CHANCE,
+  PICKUP_CHANCE_UPGRADE_BONUS,
   PICKUP_CURRENCY_CHANCE,
   PICKUP_CURRENCY_MAX,
   PICKUP_CURRENCY_MIN,
@@ -256,6 +257,9 @@ export default function GameScreen({
   const extraChargeLevel = getUpgradeLevel(ownedUpgrades, 'extraCharge');
   const giantSizeLevel = getUpgradeLevel(ownedUpgrades, 'giantSize');
   const giantDurationLevel = getUpgradeLevel(ownedUpgrades, 'giantDuration');
+  const pickupChanceLevel = getUpgradeLevel(ownedUpgrades, 'pickupChance');
+  const effectivePickupChance =
+    PICKUP_DROP_CHANCE + (pickupChanceLevel > 0 ? PICKUP_CHANCE_UPGRADE_BONUS[pickupChanceLevel - 1] : 0);
   // Owned or not, this is the real cap for the lifetime of this match —
   // upgrades only change between matches (Shop isn't reachable mid-game).
   const maxCharges =
@@ -521,7 +525,7 @@ export default function GameScreen({
                 // A broken target sometimes drops something to catch — a
                 // flat score bonus, a temporary fire-pattern or pull-in
                 // power-up, a screen-clearing bomb, or Stardust.
-                if (ENHANCEMENTS_ENABLED && Math.random() < PICKUP_DROP_CHANCE) {
+                if (ENHANCEMENTS_ENABLED && Math.random() < effectivePickupChance) {
                   const kind = rollPickupKind();
                   const value =
                     kind === 'score'
