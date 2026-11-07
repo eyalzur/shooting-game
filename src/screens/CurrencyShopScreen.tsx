@@ -1,5 +1,7 @@
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
+import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
 import { COLORS, CURRENCY_ICON, CURRENCY_NAME, CURRENCY_PACKS } from '../constants';
 import { playPurchase, playUiTap } from '../utils/sound';
@@ -12,6 +14,8 @@ interface Props {
 
 export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Props) {
   const { width, height } = useWindowDimensions();
+  const [burstEvent, setBurstEvent] = useState<PurchaseBurstEvent | null>(null);
+  const burstIdRef = useRef(0);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -41,6 +45,14 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
             onPress={() => {
               playPurchase();
               onBuyPack(pack.amount);
+              burstIdRef.current += 1;
+              setBurstEvent({
+                id: burstIdRef.current,
+                icon: pack.icon,
+                title: pack.name,
+                sub: `+${pack.amount} STARDUST`,
+                color: COLORS.gold,
+              });
             }}
             scaleTo={0.97}
             style={styles.card}
@@ -60,6 +72,7 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
           </PressableScale>
         ))}
       </View>
+      <PurchaseBurst event={burstEvent} />
     </View>
   );
 }

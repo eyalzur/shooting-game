@@ -6,29 +6,34 @@ interface Props {
   pickup: PickupState;
 }
 
-const ICONS: Record<PickupState['kind'], string> = {
+export const PICKUP_ICONS: Record<PickupState['kind'], string> = {
   score: '⭐',
   rapidFire: '⚡',
   spreadShot: '🔱',
   bomb: '💣',
   magnet: '🧲',
   currency: CURRENCY_ICON,
+  giant: '🪐',
 };
 
-const TINTS: Record<PickupState['kind'], string> = {
+// Deliberately distinct from the fixed lane colors (pink/purple/cyan) a
+// target star is drawn in, so a falling pickup never reads as "the same
+// color" as a star already on screen.
+export const PICKUP_TINTS: Record<PickupState['kind'], string> = {
   score: COLORS.gold,
-  rapidFire: COLORS.cyan,
-  spreadShot: COLORS.pink,
+  rapidFire: COLORS.green,
+  spreadShot: COLORS.orange,
   bomb: COLORS.red,
   magnet: COLORS.blue,
-  currency: COLORS.purple,
+  currency: COLORS.starlight,
+  giant: COLORS.stone,
 };
 
 // Falls from a broken target, position driven entirely by the game loop
 // (same plain left/top pattern as Bullet) — no animation of its own needed
 // beyond that fall.
 export default function Pickup({ pickup }: Props) {
-  const tint = TINTS[pickup.kind];
+  const tint = PICKUP_TINTS[pickup.kind];
   return (
     <View
       pointerEvents="none"
@@ -45,7 +50,7 @@ export default function Pickup({ pickup }: Props) {
         },
       ]}
     >
-      <Text style={styles.icon}>{ICONS[pickup.kind]}</Text>
+      <Text style={styles.icon}>{PICKUP_ICONS[pickup.kind]}</Text>
     </View>
   );
 }

@@ -5,6 +5,9 @@ interface Props {
   x: number | Animated.Value;
   y: number;
   color?: string;
+  /** Grows/shrinks the whole cannon around its own center — driven by the
+   * Giant pickup. Plain number or an Animated.Value for a springy pop. */
+  scale?: number | Animated.Value;
 }
 
 // No avatar, no character — just the point the shots come from: a glowing
@@ -13,13 +16,13 @@ interface Props {
 // x is positioned via transform (not left) so the live player's slide
 // animation can drive it as an Animated.Value while the bot keeps using a
 // plain number.
-export default function Player({ x, y, color = COLORS.blue }: Props) {
+export default function Player({ x, y, color = COLORS.blue, scale = 1 }: Props) {
   const translateX = typeof x === 'number' ? x - PLAYER_SIZE / 2 : Animated.subtract(x, PLAYER_SIZE / 2);
   return (
     <Animated.View
       style={[
         styles.wrap,
-        { top: y - PLAYER_SIZE / 2, transform: [{ translateX }] },
+        { top: y - PLAYER_SIZE / 2, transform: [{ translateX }, { scale }] },
       ]}
     >
       <View style={[styles.glow, { backgroundColor: color, shadowColor: color }]} />

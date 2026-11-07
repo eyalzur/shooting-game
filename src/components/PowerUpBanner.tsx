@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../constants';
 
-export type PowerUpKind = 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet';
+export type PowerUpKind = 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'giant';
 
 interface Props {
   event: { id: number; kind: PowerUpKind } | null;
@@ -11,10 +11,11 @@ interface Props {
 const VISIBLE_MS = 1000;
 
 const CONTENT: Record<PowerUpKind, { icon: string; label: string; sub: string; color: string }> = {
-  rapidFire: { icon: '⚡', label: 'RAPID FIRE', sub: 'DOUBLE SHOTS', color: COLORS.cyan },
-  spreadShot: { icon: '🔱', label: 'SPREAD SHOT', sub: '3-WAY FAN', color: COLORS.pink },
+  rapidFire: { icon: '⚡', label: 'RAPID FIRE', sub: 'DOUBLE SHOTS', color: COLORS.green },
+  spreadShot: { icon: '🔱', label: 'SPREAD SHOT', sub: '3-WAY FAN', color: COLORS.orange },
   bomb: { icon: '💣', label: 'NOVA BOMB', sub: 'TARGETS CLEARED', color: COLORS.red },
   magnet: { icon: '🧲', label: 'MAGNET', sub: 'PICKUPS DRAWN IN', color: COLORS.blue },
+  giant: { icon: '🪐', label: 'GROWTH', sub: 'CANNON GROWS', color: COLORS.stone },
 };
 
 // Big, impossible-to-miss, one-shot — the same finite burst-and-fade pattern

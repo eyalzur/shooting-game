@@ -1,5 +1,7 @@
+import { useRef, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
+import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
 import { COLORS, CURRENCY_ICON, CURRENCY_NAME, SHOP_ITEMS } from '../constants';
 import { ShopItemDef, UpgradeId } from '../types';
@@ -54,6 +56,8 @@ function ShopItemCard({
 
 export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpenCurrencyShop, onBack }: Props) {
   const { width, height } = useWindowDimensions();
+  const [burstEvent, setBurstEvent] = useState<PurchaseBurstEvent | null>(null);
+  const burstIdRef = useRef(0);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -89,21 +93,34 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
       </PressableScale>
 
       <View style={styles.itemStack}>
-        {SHOP_ITEMS.map((item) => (
-          <ShopItemCard
-            key={item.id}
-            item={item}
-            level={ownedUpgrades.filter((owned) => owned === item.id).length}
-            currency={currency}
-            onBuy={() => {
-              playPurchase();
-              onPurchase(item.id);
-            }}
-          />
-        ))}
+        {SHOP_ITEMS.map((item) => {
+          const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+          return (
+            <ShopItemCard
+              key={item.id}
+              item={item}
+              level={level}
+              currency={currency}
+              onBuy={() => {
+                playPurchase();
+                onPurchase(item.id);
+                burstIdRef.current += 1;
+                const nextLevel = level + 1;
+                setBurstEvent({
+                  id: burstIdRef.current,
+                  icon: item.icon,
+                  title: item.name,
+                  sub: item.prices.length > 1 ? `LEVEL ${nextLevel}` : 'EQUIPPED',
+                  color: COLORS.cyan,
+                });
+              }}
+            />
+          );
+        })}
       </View>
 
       <Text style={styles.comingSoon}>More upgrades coming soon.</Text>
+      <PurchaseBurst event={burstEvent} />
     </View>
   );
 }

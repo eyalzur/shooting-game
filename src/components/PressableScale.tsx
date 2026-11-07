@@ -12,19 +12,23 @@ interface Props {
   children?: ReactNode;
 }
 
-// A quick, consistent spring scale-down on touch and back up on release —
-// the same feel every tappable control in the app should have. Disabled
-// controls get no animation, since there's nothing to confirm.
-export default function PressableScale({ onPress, style, disabled, scaleTo = 0.94, children }: Props) {
+// A quick, consistent spring scale-down on touch, then a little overshoot
+// bounce back past 1 on release — the same punchy feel every tappable
+// control in the app should have. Disabled controls get no animation, since
+// there's nothing to confirm.
+export default function PressableScale({ onPress, style, disabled, scaleTo = 0.9, children }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
 
   const onPressIn = () => {
     if (disabled) return;
-    Animated.spring(scale, { toValue: scaleTo, useNativeDriver: true, speed: 30 }).start();
+    Animated.spring(scale, { toValue: scaleTo, useNativeDriver: true, speed: 40, bounciness: 0 }).start();
   };
   const onPressOut = () => {
     if (disabled) return;
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 20 }).start();
+    Animated.sequence([
+      Animated.spring(scale, { toValue: 1.08, useNativeDriver: true, speed: 30, bounciness: 0 }),
+      Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }),
+    ]).start();
   };
 
   return (

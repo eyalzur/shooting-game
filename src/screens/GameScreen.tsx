@@ -7,6 +7,7 @@ import Pickup from '../components/Pickup';
 import PowerUpBanner, { PowerUpKind } from '../components/PowerUpBanner';
 import PressableScale from '../components/PressableScale';
 import Player from '../components/Player';
+import ResultStats from '../components/ResultStats';
 import ScorePopup from '../components/ScorePopup';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
@@ -34,6 +35,10 @@ import {
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
   FIRE_RECHARGE_STEP,
+  GIANT_BASE_DURATION_MS,
+  GIANT_BASE_SIZE_MULT,
+  GIANT_DURATION_BONUS_MS,
+  GIANT_SIZE_MULTS,
   GOLDEN_SCORE_MULTIPLIER,
   GOLDEN_STAR_CHANCE,
   HIT_BAND,
@@ -47,6 +52,7 @@ import {
   PICKUP_CURRENCY_MIN,
   PICKUP_DROP_CHANCE,
   PICKUP_FALL_SPEED,
+  PICKUP_GIANT_CHANCE,
   PICKUP_MAGNET_CHANCE,
   PICKUP_MAGNET_DURATION_MS,
   PICKUP_MAGNET_PULL_SPEED,
@@ -140,6 +146,7 @@ const PICKUP_KIND_WEIGHTS: [number, PickupKind][] = [
   [PICKUP_SPREAD_CHANCE, 'spreadShot'],
   [PICKUP_BOMB_CHANCE, 'bomb'],
   [PICKUP_MAGNET_CHANCE, 'magnet'],
+  [PICKUP_GIANT_CHANCE, 'giant'],
 ];
 function rollPickupKind(): PickupKind {
   const roll = Math.random();
@@ -246,10 +253,15 @@ export default function GameScreen({
   const moveSpeedLevel = getUpgradeLevel(ownedUpgrades, 'moveSpeed');
   const bulletSpeedLevel = getUpgradeLevel(ownedUpgrades, 'bulletSpeed');
   const extraChargeLevel = getUpgradeLevel(ownedUpgrades, 'extraCharge');
+  const giantSizeLevel = getUpgradeLevel(ownedUpgrades, 'giantSize');
+  const giantDurationLevel = getUpgradeLevel(ownedUpgrades, 'giantDuration');
   // Owned or not, this is the real cap for the lifetime of this match —
   // upgrades only change between matches (Shop isn't reachable mid-game).
   const maxCharges =
     FIRE_MAX_CHARGES + (ENHANCEMENTS_ENABLED && extraChargeLevel > 0 ? EXTRA_CHARGE_BONUSES[extraChargeLevel - 1] : 0);
+  // Fixed for the lifetime of the match, same as maxCharges above.
+  const giantSizeMult = giantSizeLevel > 0 ? GIANT_SIZE_MULTS[giantSizeLevel - 1] : GIANT_BASE_SIZE_MULT;
+  const giantDurationMs = GIANT_BASE_DURATION_MS + (giantDurationLevel > 0 ? GIANT_DURATION_BONUS_MS[giantDurationLevel - 1] : 0);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // A dedicated second row for ability badges — reserved space, not
@@ -280,6 +292,15 @@ export default function GameScreen({
   const rapidFireUntilRef = useRef(ownsDoubleShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const spreadUntilRef = useRef(ownsSpreadShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const magnetUntilRef = useRef(0);
+  const giantUntilRef = useRef(0);
+  // The real, authoritative cannon size for this frame — catch radius and
+  // clamp math read this, not the animated value below, so gameplay never
+  // depends on where a spring happens to be mid-bounce.
+  const playerSizeRef = useRef(PLAYER_SIZE);
+  const prevGiantActiveRef = useRef(false);
+  // A springy pop/shrink for the visual only; playerSizeRef is what gameplay
+  // actually uses, so a bouncy overshoot here never throws off the hitbox.
+  const playerGrowScale = useRef(new Animated.Value(1)).current;
   // Every Stardust source in a match — pickups now, whatever's added later
   // — should route through earnCurrency below so it's reflected both in the
   // persisted balance (via onEarnCurrency) and this match's own running
@@ -299,6 +320,9 @@ export default function GameScreen({
   const shotsHitRef = useRef(0);
   const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
+  // Every pickup kind caught this match, for the end-of-match breakdown —
+  // keyed lazily, so a kind never caught just never appears.
+  const pickupCountsRef = useRef<Partial<Record<PickupKind, number>>>({});
   const difficultyLevelRef = useRef(0);
   const emittedLevelRef = useRef(0);
   const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
@@ -323,6 +347,7 @@ export default function GameScreen({
   const [rapidFireMsLeft, setRapidFireMsLeft] = useState(0);
   const [spreadMsLeft, setSpreadMsLeft] = useState(0);
   const [magnetMsLeft, setMagnetMsLeft] = useState(0);
+  const [giantMsLeft, setGiantMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -511,12 +536,28 @@ export default function GameScreen({
       }
       bulletsRef.current = remainingBullets;
 
+      // Giant: while active, the cannon itself is bigger — widening its own
+      // catch radius, not pulling pickups in like Magnet does. playerSizeRef
+      // is the real gameplay size; the spring below is just the visual pop.
+      const giantActive = giantUntilRef.current > now;
+      playerSizeRef.current = giantActive ? PLAYER_SIZE * giantSizeMult : PLAYER_SIZE;
+      if (giantActive !== prevGiantActiveRef.current) {
+        prevGiantActiveRef.current = giantActive;
+        Animated.spring(playerGrowScale, {
+          toValue: giantActive ? giantSizeMult : 1,
+          friction: 5,
+          tension: 140,
+          useNativeDriver: true,
+        }).start();
+      }
+
       // Pickups: fall straight down from where they dropped, or drift
       // toward the cannon's x too while Magnet is active. Brush the
       // player's cannon against one to collect it; miss the catch and it
       // falls off the bottom and is gone.
       if (ENHANCEMENTS_ENABLED) {
         const magnetActive = magnetUntilRef.current > now;
+        const playerSize = playerSizeRef.current;
         const nextPickups: PickupState[] = [];
         for (const p of pickupsRef.current) {
           const nextY = p.y + PICKUP_FALL_SPEED * dt;
@@ -528,9 +569,10 @@ export default function GameScreen({
           }
           const caught =
             !matchOverRef.current &&
-            Math.abs(nextY - playerY) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2 &&
-            Math.abs(nextX - playerXRef.current) <= PLAYER_SIZE / 2 + PICKUP_SIZE / 2;
+            Math.abs(nextY - playerY) <= playerSize / 2 + PICKUP_SIZE / 2 &&
+            Math.abs(nextX - playerXRef.current) <= playerSize / 2 + PICKUP_SIZE / 2;
           if (caught) {
+            pickupCountsRef.current[p.kind] = (pickupCountsRef.current[p.kind] ?? 0) + 1;
             if (p.kind === 'score') {
               scoreRef.current += p.value;
               popupsRef.current = [
@@ -542,7 +584,7 @@ export default function GameScreen({
               earnCurrency(p.value);
               popupsRef.current = [
                 ...popupsRef.current,
-                { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.purple, createdAt: now },
+                { id: ++idCounterRef.current, x: p.x, y: playerY - PLAYER_SIZE, value: p.value, color: COLORS.starlight, createdAt: now },
               ];
             } else if (p.kind === 'rapidFire') {
               // Already active (owned window or an earlier pickup)? Stack
@@ -559,6 +601,10 @@ export default function GameScreen({
               magnetUntilRef.current = Math.max(magnetUntilRef.current, now) + PICKUP_MAGNET_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'magnet' });
+            } else if (p.kind === 'giant') {
+              giantUntilRef.current = Math.max(giantUntilRef.current, now) + giantDurationMs;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'giant' });
             } else {
               // Bomb: every live target goes down at once, same scoring and
               // explosion as a direct hit — just no chained pickup drops,
@@ -697,6 +743,7 @@ export default function GameScreen({
       setRapidFireMsLeft(Math.max(0, rapidFireUntilRef.current - now));
       setSpreadMsLeft(Math.max(0, spreadUntilRef.current - now));
       setMagnetMsLeft(Math.max(0, magnetUntilRef.current - now));
+      setGiantMsLeft(Math.max(0, giantUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -716,7 +763,7 @@ export default function GameScreen({
       ...shots.map((s) => ({
         id: ++idCounterRef.current,
         x: playerXRef.current + s.dx,
-        y: playerY - PLAYER_SIZE / 2,
+        y: playerY - playerSizeRef.current / 2,
         dirX: s.dirX,
         dirY: s.dirY,
         owner: 'player' as const,
@@ -787,7 +834,7 @@ export default function GameScreen({
   const isHoldRef = useRef(false);
   const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const animateTo = (pageX: number) => {
-    const clamped = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
+    const clamped = Math.min(Math.max(pageX, playerSizeRef.current / 2), width - playerSizeRef.current / 2);
     playerXRef.current = clamped;
     const dist = Math.abs(clamped - playerXAnimTargetRef.current);
     playerXAnimTargetRef.current = clamped;
@@ -806,7 +853,7 @@ export default function GameScreen({
   // setValue stops any in-flight animateTo slide and snaps straight to the
   // finger — used while actively dragging, so motion is 1:1 with the touch.
   const trackTo = (pageX: number) => {
-    const clamped = Math.min(Math.max(pageX, PLAYER_SIZE / 2), width - PLAYER_SIZE / 2);
+    const clamped = Math.min(Math.max(pageX, playerSizeRef.current / 2), width - playerSizeRef.current / 2);
     playerXRef.current = clamped;
     playerXAnimTargetRef.current = clamped;
     playerXAnim.setValue(clamped);
@@ -924,6 +971,9 @@ export default function GameScreen({
             {magnetMsLeft > 0 && (
               <Text style={styles.magnetBadge}>🧲 {Math.ceil(magnetMsLeft / 1000)}s</Text>
             )}
+            {giantMsLeft > 0 && (
+              <Text style={styles.giantBadge}>🪐 {Math.ceil(giantMsLeft / 1000)}s</Text>
+            )}
           </View>
         )}
       </View>
@@ -947,7 +997,7 @@ export default function GameScreen({
             <ScorePopup key={p.id} popup={p} />
           ))}
           {isVsBot && bot && <Player x={botX} y={playerY} color={bot.color} />}
-          <Player x={playerXAnim} y={playerY} />
+          <Player x={playerXAnim} y={playerY} scale={playerGrowScale} />
           <LevelUpBanner event={levelUpEvent} />
           <PowerUpBanner event={powerUpEvent} />
         </View>
@@ -962,17 +1012,15 @@ export default function GameScreen({
                   <Text style={styles.resultValue}>{scoreRef.current}</Text>
                 </View>
               </View>
-              {ENHANCEMENTS_ENABLED && shotsFiredRef.current > 0 && (
-                <Text style={styles.resultAccuracy}>
-                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).icon} MARKSMANSHIP{' '}
-                  {Math.round((shotsHitRef.current / shotsFiredRef.current) * 100)}% ·{' '}
-                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).label}
-                </Text>
-              )}
-              {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
-                <Text style={styles.resultCurrency}>
-                  {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
-                </Text>
+              {ENHANCEMENTS_ENABLED && (
+                <ResultStats
+                  shotsHit={shotsHitRef.current}
+                  shotsFired={shotsFiredRef.current}
+                  tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
+                  targetsHit={hitsRef.current}
+                  currencyEarned={matchCurrencyEarned}
+                  pickupCounts={pickupCountsRef.current}
+                />
               )}
               <View style={styles.resultButtons}>
                 <PressableScale
@@ -1066,17 +1114,15 @@ export default function GameScreen({
                   </Text>
                 </View>
               </View>
-              {ENHANCEMENTS_ENABLED && shotsFiredRef.current > 0 && (
-                <Text style={styles.resultAccuracy}>
-                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).icon} MARKSMANSHIP{' '}
-                  {Math.round((shotsHitRef.current / shotsFiredRef.current) * 100)}% ·{' '}
-                  {getAccuracyTier(shotsHitRef.current / shotsFiredRef.current).label}
-                </Text>
-              )}
-              {ENHANCEMENTS_ENABLED && matchCurrencyEarned > 0 && (
-                <Text style={styles.resultCurrency}>
-                  {CURRENCY_ICON} +{matchCurrencyEarned} {CURRENCY_NAME.toUpperCase()} EARNED
-                </Text>
+              {ENHANCEMENTS_ENABLED && (
+                <ResultStats
+                  shotsHit={shotsHitRef.current}
+                  shotsFired={shotsFiredRef.current}
+                  tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
+                  targetsHit={hitsRef.current}
+                  currencyEarned={matchCurrencyEarned}
+                  pickupCounts={pickupCountsRef.current}
+                />
               )}
               <View style={styles.resultButtons}>
                 <PressableScale
@@ -1210,6 +1256,15 @@ const styles = StyleSheet.create({
     textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
+  giantBadge: {
+    color: COLORS.stone,
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    textShadowColor: COLORS.stone,
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
+  },
   chargePip: {
     width: 10,
     height: 10,
@@ -1308,26 +1363,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textShadowColor: COLORS.blue,
     textShadowRadius: 14,
-    textShadowOffset: { width: 0, height: 0 },
-  },
-  resultAccuracy: {
-    color: COLORS.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: -16,
-    marginBottom: 6,
-    textAlign: 'center',
-  },
-  resultCurrency: {
-    color: COLORS.purple,
-    fontSize: 13,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    marginTop: 6,
-    marginBottom: 20,
-    textShadowColor: COLORS.purple,
-    textShadowRadius: 10,
     textShadowOffset: { width: 0, height: 0 },
   },
   resultButtons: {

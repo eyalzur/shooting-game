@@ -68,11 +68,12 @@ export default function Target({ target, lane, laneY }: Props) {
     prevBounceId.current = target.bounceId;
   }, [target.bounceId, bounce]);
 
-  // Rotation is computed straight from the target's own spin phase, which
-  // the main game loop advances every tick — no independent animation clock
-  // to fall out of sync or silently stop.
-  const rotate = `${target.spin * 360}deg`;
-  const rotateBack = `${-target.spin * 360}deg`;
+  // A real 3D tumble (rotateY + perspective), not a flat in-plane spin — the
+  // star turns to face you edge-on and back, like a coin flipping, rather
+  // than pinwheeling around a fixed axis. Driven straight from the target's
+  // own spin phase, which the main game loop advances every tick — no
+  // independent animation clock to fall out of sync or silently stop.
+  const spinY = `${target.spin * 360}deg`;
 
   const bouncePop = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
   const bounceFlashOpacity = bounce;
@@ -245,21 +246,23 @@ export default function Target({ target, lane, laneY }: Props) {
           )}
           <View
             style={[
-              styles.spikeSet,
-              { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ rotate }] },
+              styles.spinWrap,
+              { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ perspective: 400 }, { rotateY: spinY }] },
             ]}
           >
-            <View style={[styles.spike, styles.spikeV, { backgroundColor: baseColor }]} />
-            <View style={[styles.spike, styles.spikeH, { backgroundColor: baseColor }]} />
-          </View>
-          <View
-            style={[
-              styles.spikeSet,
-              { width: lane.size * 1.3, height: lane.size * 1.3, transform: [{ rotate: rotateBack }] },
-            ]}
-          >
-            <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: baseColor }]} />
-            <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: baseColor }]} />
+            <View style={[styles.spikeSet, { width: '100%', height: '100%' }]}>
+              <View style={[styles.spike, styles.spikeV, { backgroundColor: baseColor }]} />
+              <View style={[styles.spike, styles.spikeH, { backgroundColor: baseColor }]} />
+            </View>
+            <View
+              style={[
+                styles.spikeSet,
+                { width: lane.size * 1.3, height: lane.size * 1.3 },
+              ]}
+            >
+              <View style={[styles.spike, styles.spikeDiagA, { backgroundColor: baseColor }]} />
+              <View style={[styles.spike, styles.spikeDiagB, { backgroundColor: baseColor }]} />
+            </View>
           </View>
         </>
       )}
@@ -340,6 +343,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },
+  },
+  spinWrap: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   spikeSet: {
     position: 'absolute',

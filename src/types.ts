@@ -34,7 +34,7 @@ export interface TargetState {
   isGolden: boolean;
 }
 
-export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency';
+export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant';
 
 /** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
 export interface PickupState {
@@ -73,7 +73,14 @@ export interface ScorePopupState {
 export type GameMode = 'solo' | 'vs';
 
 /** A permanent shop upgrade, identified by id — the owned set is what's persisted. */
-export type UpgradeId = 'doubleShot' | 'moveSpeed' | 'bulletSpeed' | 'spreadShot' | 'extraCharge';
+export type UpgradeId =
+  | 'doubleShot'
+  | 'moveSpeed'
+  | 'bulletSpeed'
+  | 'spreadShot'
+  | 'extraCharge'
+  | 'giantSize'
+  | 'giantDuration';
 
 export interface ShopItemDef {
   id: UpgradeId;

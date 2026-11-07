@@ -9,6 +9,24 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.11.0',
+    date: '2026-11-07',
+    icon: '🪐',
+    title: 'Growth pickup, a bigger result screen, and a round of balance fixes',
+    bullets: [
+      'New Growth pickup: grows the cannon for a few seconds, making the next pickups easier to catch.',
+      'Two new upgrades — Colossus Core (bigger growth, capped well short of double) and Lasting Growth (longer).',
+      'Targets now spin in real 3D, not a flat pinwheel — and pickup colors no longer repeat a star’s lane color.',
+      'Result screen overhaul: a big animated Stardust counter, a clearly labeled Accuracy badge (that mystery leaf is gone), and a breakdown of targets hit and every pickup collected.',
+      'Buttons have a punchier press animation, and buying something now gets a real celebration — burst, confetti, the works.',
+      'Double Shot + Spread Shot together now fire as a quick 3-pulse ripple instead of all 6 bullets at once.',
+      'Spread Shot fan narrowed further.',
+      'Magnet pulls pickups in faster.',
+      'Every Shop and Stardust pack card is tappable anywhere on it, not just the price.',
+      'Player screen has a Reset Inventory button (upgrades only — currency and best score untouched).',
+    ],
+  },
+  {
     version: '1.10.0',
     date: '2026-11-07',
     icon: '📈',
@@ -142,6 +160,12 @@ export const COLORS = {
   pink: '#ff5cb3',
   stone: '#a89a85',
   stoneDark: '#5f5346',
+  // Pickup-only accents — deliberately not reused from the lane or team
+  // colors above, so a falling pickup never reads as "the same color" as a
+  // star or cannon already on screen.
+  green: '#5cff9d',
+  orange: '#ff9d5c',
+  starlight: '#d9d4ff',
   // Team colors: the player is always blue, the robot opponent always red —
   // used for cannons, bullets, and hit/explosion effects so it's instantly
   // clear whose shot did what.
@@ -272,13 +296,14 @@ export const ENHANCEMENTS_ENABLED = true;
 export const GOLDEN_STAR_CHANCE = 0.15;
 export const GOLDEN_SCORE_MULTIPLIER = 2;
 export const PICKUP_DROP_CHANCE = 0.35;
-// Of the pickups that do drop, these five chances decide the kind — the
+// Of the pickups that do drop, these chances decide the kind — the
 // remaining share is a flat score bonus.
 export const PICKUP_CURRENCY_CHANCE = 0.25;
 export const PICKUP_RAPID_CHANCE = 0.15;
 export const PICKUP_SPREAD_CHANCE = 0.15;
 export const PICKUP_BOMB_CHANCE = 0.12;
 export const PICKUP_MAGNET_CHANCE = 0.13;
+export const PICKUP_GIANT_CHANCE = 0.1;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
@@ -292,6 +317,15 @@ export const PICKUP_CURRENCY_MAX = 15;
 // catching trivial for a few seconds.
 export const PICKUP_MAGNET_DURATION_MS = 6000;
 export const PICKUP_MAGNET_PULL_SPEED = 420; // px/sec
+
+// Giant: while active, the cannon itself grows, widening its catch radius
+// so the pickups that follow are easier to grab. The size upgrade only
+// raises the ceiling as far as GIANT_SIZE_MULTS goes — capped well short of
+// double, so the cannon never swallows the lane.
+export const GIANT_BASE_SIZE_MULT = 1.3;
+export const GIANT_BASE_DURATION_MS = 5000;
+export const GIANT_SIZE_MULTS = [1.4, 1.5, 1.6];
+export const GIANT_DURATION_BONUS_MS = [2000, 4000, 6000];
 
 // Spread shot: instead of one straight bullet, fires three — a center shot
 // plus two angled side shots. Bullets carry a unit direction (BulletState
@@ -393,5 +427,19 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     name: 'EXTRA CHAMBER',
     description: 'More fire charges in the clip — one more per level.',
     prices: [130, 220, 340],
+  },
+  {
+    id: 'giantSize',
+    icon: '🪐',
+    name: 'COLOSSUS CORE',
+    description: 'Growth pickups grow the cannon bigger — a wider catch for whatever falls next. Capped well short of double.',
+    prices: [140, 230, 350],
+  },
+  {
+    id: 'giantDuration',
+    icon: '⏱️',
+    name: 'LASTING GROWTH',
+    description: 'Growth pickups last longer before the cannon shrinks back.',
+    prices: [110, 180, 270],
   },
 ];
