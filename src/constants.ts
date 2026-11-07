@@ -9,12 +9,12 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.16.1',
+    version: '1.16.2',
     date: '2026-11-07',
-    icon: '🔵',
-    title: "\"Can't afford\" no longer looks like a category's own color",
+    icon: '🩵',
+    title: '"Can\'t afford" switched from blue to cyan',
     bullets: [
-      'Every category already owns a color (Firepower is red, Luck is gold, etc.), so the old red "can\'t afford yet" state blended right into whichever category happened to be red or gold-ish. It\'s blue now — a color no category uses, so it always stands apart.',
+      'Blue is the player\'s own team color everywhere else in the game (cannon, bullets, score), so using it for "can\'t afford yet" read as a mismatch. It\'s cyan now instead — still distinct from every category color, without the team-color mix-up.',
     ],
   },
   {
