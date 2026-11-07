@@ -297,7 +297,7 @@ export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
 // plus two angled side shots. Bullets carry a unit direction (BulletState
 // dirX/dirY) multiplied by the shared bullet speed each tick, so an angled
 // bullet ramps up with difficulty/Hot Rounds exactly like a straight one.
-export const SPREAD_ANGLE_DEG = 9;
+export const SPREAD_ANGLE_DEG = 5;
 
 // Stardust: the shop currency. Earned mid-match from currency pickups, and
 // as a reward for winning a vs-bot match — kept permanently either way,
