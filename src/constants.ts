@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.15.2',
+    date: '2026-11-07',
+    icon: '🎨',
+    title: 'Shop buy buttons now show real color, not just gray',
+    bullets: [
+      'Maxed items are green, items you can\'t afford yet are red — instead of both just looking dimmed gray like before.',
+    ],
+  },
+  {
     version: '1.15.1',
     date: '2026-11-07',
     icon: '🧭',

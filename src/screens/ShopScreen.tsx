@@ -76,8 +76,18 @@ function SuggestionCard({
       <Text style={styles.suggestName} numberOfLines={2}>
         {item.name}
       </Text>
-      <View style={[styles.suggestPriceTag, { borderColor: categoryColor, backgroundColor: `${categoryColor}26` }]}>
-        <Text style={styles.suggestPriceText} numberOfLines={1}>
+      <View
+        style={[
+          styles.suggestPriceTag,
+          affordable
+            ? { borderColor: categoryColor, backgroundColor: `${categoryColor}26` }
+            : styles.suggestPriceTagDisabled,
+        ]}
+      >
+        <Text
+          style={[styles.suggestPriceText, !affordable && styles.suggestPriceTextDisabled]}
+          numberOfLines={1}
+        >
           {nextPrice}
         </Text>
       </View>
@@ -138,7 +148,7 @@ function ShopItemCard({
               <Text style={styles.statNext}>{nextStat}</Text>
             </>
           )}
-          {maxed && <Text style={[styles.statMaxTag, { color: accentColor }]}>MAX</Text>}
+          {maxed && <Text style={[styles.statMaxTag, { color: COLORS.green }]}>MAX</Text>}
         </View>
       </View>
       <View
@@ -149,7 +159,14 @@ function ShopItemCard({
           !maxed && !affordable && styles.buyButtonDisabled,
         ]}
       >
-        <Text style={styles.buyButtonText} numberOfLines={1}>
+        <Text
+          style={[
+            styles.buyButtonText,
+            maxed && styles.buyButtonTextOwned,
+            !maxed && !affordable && styles.buyButtonTextDisabled,
+          ]}
+          numberOfLines={1}
+        >
           {maxed ? 'MAX' : nextPrice}
         </Text>
       </View>
@@ -439,7 +456,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,12,38,0.65)',
   },
   suggestCardDisabled: {
-    opacity: 0.5,
+    borderColor: 'rgba(255,82,82,0.4)',
   },
   suggestTier: {
     fontSize: 8.5,
@@ -479,6 +496,13 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 11.5,
     fontWeight: 'bold',
+  },
+  suggestPriceTagDisabled: {
+    borderColor: COLORS.red,
+    backgroundColor: 'rgba(255,82,82,0.12)',
+  },
+  suggestPriceTextDisabled: {
+    color: COLORS.redLight,
   },
   categoryRow: {
     flexDirection: 'row',
@@ -597,13 +621,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
   },
   buyButtonOwned: {
-    borderColor: COLORS.textSecondary,
-    backgroundColor: 'transparent',
+    borderColor: COLORS.green,
+    backgroundColor: 'rgba(92,255,157,0.14)',
   },
   buyButtonDisabled: {
-    borderColor: 'rgba(154,143,194,0.3)',
-    backgroundColor: 'transparent',
-    opacity: 0.5,
+    borderColor: COLORS.red,
+    backgroundColor: 'rgba(255,82,82,0.12)',
   },
   buyButtonText: {
     color: COLORS.textPrimary,
@@ -611,5 +634,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     letterSpacing: 0.5,
     textAlign: 'center',
+  },
+  buyButtonTextOwned: {
+    color: COLORS.green,
+  },
+  buyButtonTextDisabled: {
+    color: COLORS.redLight,
   },
 });
