@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { COLORS } from '../constants';
 
-export type PowerUpKind = 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'giant';
+export type PowerUpKind = 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'giant' | 'homing';
 
 interface Props {
   event: { id: number; kind: PowerUpKind } | null;
@@ -16,6 +16,7 @@ const CONTENT: Record<PowerUpKind, { icon: string; label: string; sub: string; c
   bomb: { icon: '💣', label: 'NOVA BOMB', sub: 'TARGETS CLEARED', color: COLORS.red },
   magnet: { icon: '🧲', label: 'MAGNET', sub: 'PICKUPS DRAWN IN', color: COLORS.blue },
   giant: { icon: '🪐', label: 'GROWTH', sub: 'CANNON GROWS', color: COLORS.stone },
+  homing: { icon: '🎯', label: 'HOMING', sub: 'BULLETS LOCK ON', color: COLORS.purple },
 };
 
 // Big, impossible-to-miss, one-shot — the same finite burst-and-fade pattern

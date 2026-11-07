@@ -44,6 +44,7 @@ import {
   GOLDEN_SCORE_MULTIPLIER,
   GOLDEN_STAR_CHANCE,
   HIT_BAND,
+  HOMING_TURN_RATE,
   LANES,
   MAX_BULLETS,
   MOVE_SPEED_UPGRADE_MULTS,
@@ -56,6 +57,8 @@ import {
   PICKUP_DROP_CHANCE,
   PICKUP_FALL_SPEED,
   PICKUP_GIANT_CHANCE,
+  PICKUP_HOMING_CHANCE,
+  PICKUP_HOMING_DURATION_MS,
   PICKUP_MAGNET_CHANCE,
   PICKUP_MAGNET_DURATION_MS,
   PICKUP_MAGNET_FALL_MULTIPLIER,
@@ -67,6 +70,7 @@ import {
   PICKUP_SIZE,
   PICKUP_SPREAD_CHANCE,
   PICKUP_SPREAD_DURATION_MS,
+  PIERCE_EXTRA_HITS,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
   PLAYER_SPEED,
@@ -75,11 +79,13 @@ import {
   RESPAWN_MAX_MS,
   RESPAWN_MIN_MS,
   SCORE_POPUP_MS,
+  SECOND_WIND_REFUND,
   SPREAD_ANGLE_DEG,
   COMBO_STAGGER_MS,
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
+  WIDE_STANCE_SIZE_BONUS,
   WIN_CURRENCY_REWARD,
 } from '../constants';
 import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState, UpgradeId } from '../types';
@@ -150,6 +156,7 @@ const PICKUP_KIND_WEIGHTS: [number, PickupKind][] = [
   [PICKUP_BOMB_CHANCE, 'bomb'],
   [PICKUP_MAGNET_CHANCE, 'magnet'],
   [PICKUP_GIANT_CHANCE, 'giant'],
+  [PICKUP_HOMING_CHANCE, 'homing'],
 ];
 function rollPickupKind(): PickupKind {
   const roll = Math.random();
@@ -253,12 +260,17 @@ export default function GameScreen({
 }: Props) {
   const ownsDoubleShot = ownedUpgrades.includes('doubleShot');
   const ownsSpreadShot = ownedUpgrades.includes('spreadShot');
+  const ownsHomingShot = ownedUpgrades.includes('homingShot');
   const moveSpeedLevel = getUpgradeLevel(ownedUpgrades, 'moveSpeed');
   const bulletSpeedLevel = getUpgradeLevel(ownedUpgrades, 'bulletSpeed');
   const extraChargeLevel = getUpgradeLevel(ownedUpgrades, 'extraCharge');
   const giantSizeLevel = getUpgradeLevel(ownedUpgrades, 'giantSize');
   const giantDurationLevel = getUpgradeLevel(ownedUpgrades, 'giantDuration');
   const pickupChanceLevel = getUpgradeLevel(ownedUpgrades, 'pickupChance');
+  const piercingLevel = getUpgradeLevel(ownedUpgrades, 'piercing');
+  const wideStanceLevel = getUpgradeLevel(ownedUpgrades, 'wideStance');
+  const wideStanceBonus = wideStanceLevel > 0 ? WIDE_STANCE_SIZE_BONUS[wideStanceLevel - 1] : 0;
+  const secondWindLevel = getUpgradeLevel(ownedUpgrades, 'secondWind');
   const effectivePickupChance =
     PICKUP_DROP_CHANCE + (pickupChanceLevel > 0 ? PICKUP_CHANCE_UPGRADE_BONUS[pickupChanceLevel - 1] : 0);
   // Owned or not, this is the real cap for the lifetime of this match —
@@ -294,8 +306,12 @@ export default function GameScreen({
   // Not a bool, so it just naturally expires — no separate timer to clear.
   const rapidFireUntilRef = useRef(ownsDoubleShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const spreadUntilRef = useRef(ownsSpreadShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
+  const homingUntilRef = useRef(ownsHomingShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const magnetUntilRef = useRef(0);
   const giantUntilRef = useRef(0);
+  // Second Wind: how many more missed-pickup refunds are left this match —
+  // set once at mount from the owned level, only ever counts down.
+  const secondWindUsesLeftRef = useRef(secondWindLevel);
   // The real, authoritative cannon size for this frame — catch radius and
   // clamp math read this, not the animated value below, so gameplay never
   // depends on where a spring happens to be mid-bounce.
@@ -351,6 +367,7 @@ export default function GameScreen({
   const [spreadMsLeft, setSpreadMsLeft] = useState(0);
   const [magnetMsLeft, setMagnetMsLeft] = useState(0);
   const [giantMsLeft, setGiantMsLeft] = useState(0);
+  const [homingMsLeft, setHomingMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -487,9 +504,42 @@ export default function GameScreen({
       targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
       // Bullets: move up, drop once off-screen. Speed ramps with level too.
+      // A homing bullet steers its direction toward the nearest live target
+      // ahead of it each tick, before the position update below uses it —
+      // a gradual turn (HOMING_TURN_RATE), not an instant snap.
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, bulletSpeedLevel);
       bulletsRef.current = bulletsRef.current
-        .map((b) => ({ ...b, x: b.x + b.dirX * bulletSpeed * dt, y: b.y + b.dirY * bulletSpeed * dt }))
+        .map((b) => {
+          let dirX = b.dirX;
+          let dirY = b.dirY;
+          if (b.homing && b.owner === 'player') {
+            let nearest: TargetState | null = null;
+            let nearestDist = Infinity;
+            for (const t of targetsRef.current) {
+              if (t.hitAt !== null) continue;
+              const laneY = lanes[t.laneIndex].y * playAreaHeight;
+              if (laneY >= b.y) continue;
+              const dist = Math.hypot(t.x - b.x, laneY - b.y);
+              if (dist < nearestDist) {
+                nearestDist = dist;
+                nearest = t;
+              }
+            }
+            if (nearest) {
+              const laneY = lanes[nearest.laneIndex].y * playAreaHeight;
+              const toTargetLen = Math.hypot(nearest.x - b.x, laneY - b.y) || 1;
+              const desiredDirX = (nearest.x - b.x) / toTargetLen;
+              const desiredDirY = (laneY - b.y) / toTargetLen;
+              const turn = Math.min(1, HOMING_TURN_RATE * dt);
+              dirX += (desiredDirX - dirX) * turn;
+              dirY += (desiredDirY - dirY) * turn;
+              const dirLen = Math.hypot(dirX, dirY) || 1;
+              dirX /= dirLen;
+              dirY /= dirLen;
+            }
+          }
+          return { ...b, dirX, dirY, x: b.x + dirX * bulletSpeed * dt, y: b.y + dirY * bulletSpeed * dt };
+        })
         .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
 
       // Collisions: a live bullet (either owner's) entering a lane's hit
@@ -545,6 +595,13 @@ export default function GameScreen({
               }
             }
             hitSomething = true;
+            // Piercing Rounds: a player bullet with hits left survives,
+            // continuing on to the next target behind it in the lane
+            // instead of being destroyed by this hit.
+            const pierceLeft = b.owner === 'player' ? (b.pierce ?? 0) : 0;
+            if (pierceLeft > 0) {
+              remainingBullets.push({ ...b, pierce: pierceLeft - 1 });
+            }
             break;
           }
         }
@@ -556,7 +613,8 @@ export default function GameScreen({
       // catch radius, not pulling pickups in like Magnet does. playerSizeRef
       // is the real gameplay size; the spring below is just the visual pop.
       const giantActive = giantUntilRef.current > now;
-      playerSizeRef.current = giantActive ? PLAYER_SIZE * giantSizeMult : PLAYER_SIZE;
+      const baseSize = PLAYER_SIZE + wideStanceBonus;
+      playerSizeRef.current = giantActive ? baseSize * giantSizeMult : baseSize;
       if (giantActive !== prevGiantActiveRef.current) {
         prevGiantActiveRef.current = giantActive;
         Animated.spring(playerGrowScale, {
@@ -622,6 +680,10 @@ export default function GameScreen({
               giantUntilRef.current = Math.max(giantUntilRef.current, now) + giantDurationMs;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'giant' });
+            } else if (p.kind === 'homing') {
+              homingUntilRef.current = Math.max(homingUntilRef.current, now) + PICKUP_HOMING_DURATION_MS;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'homing' });
             } else {
               // Bomb: every live target goes down at once, same scoring and
               // explosion as a direct hit — just no chained pickup drops,
@@ -657,7 +719,27 @@ export default function GameScreen({
             playPickup(p.kind);
             continue;
           }
-          if (nextY > playAreaHeight + PICKUP_SIZE) continue;
+          if (nextY > playAreaHeight + PICKUP_SIZE) {
+            // Second Wind: a pickup that falls off uncaught refunds a
+            // small flat amount instead of just being gone, up to the
+            // owned number of uses for this match.
+            if (!matchOverRef.current && secondWindUsesLeftRef.current > 0) {
+              secondWindUsesLeftRef.current -= 1;
+              earnCurrency(SECOND_WIND_REFUND);
+              popupsRef.current = [
+                ...popupsRef.current,
+                {
+                  id: ++idCounterRef.current,
+                  x: p.x,
+                  y: playAreaHeight - PICKUP_SIZE,
+                  value: SECOND_WIND_REFUND,
+                  color: COLORS.starlight,
+                  createdAt: now,
+                },
+              ];
+            }
+            continue;
+          }
           nextPickups.push({ ...p, x: nextX, y: nextY });
         }
         pickupsRef.current = nextPickups;
@@ -761,6 +843,7 @@ export default function GameScreen({
       setSpreadMsLeft(Math.max(0, spreadUntilRef.current - now));
       setMagnetMsLeft(Math.max(0, magnetUntilRef.current - now));
       setGiantMsLeft(Math.max(0, giantUntilRef.current - now));
+      setHomingMsLeft(Math.max(0, homingUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -775,6 +858,8 @@ export default function GameScreen({
 
   const spawnShots = (shots: { dx: number; dirX: number; dirY: number }[]) => {
     if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
+    const pierce = piercingLevel > 0 ? PIERCE_EXTRA_HITS[piercingLevel - 1] : 0;
+    const homing = ENHANCEMENTS_ENABLED && homingUntilRef.current > Date.now();
     bulletsRef.current = [
       ...bulletsRef.current,
       ...shots.map((s) => ({
@@ -785,6 +870,8 @@ export default function GameScreen({
         dirY: s.dirY,
         owner: 'player' as const,
         color: COLORS.blue,
+        pierce,
+        homing,
       })),
     ];
     setBullets(bulletsRef.current);
@@ -984,7 +1071,8 @@ export default function GameScreen({
           {...panResponder.panHandlers}
         >
           <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
-          {ENHANCEMENTS_ENABLED && (spreadMsLeft > 0 || rapidFireMsLeft > 0 || magnetMsLeft > 0 || giantMsLeft > 0) && (
+          {ENHANCEMENTS_ENABLED &&
+            (spreadMsLeft > 0 || rapidFireMsLeft > 0 || magnetMsLeft > 0 || giantMsLeft > 0 || homingMsLeft > 0) && (
             <View style={styles.powerStack} pointerEvents="none">
               {spreadMsLeft > 0 ? (
                 <View style={[styles.powerChip, { borderColor: COLORS.orange }]}>
@@ -1016,6 +1104,14 @@ export default function GameScreen({
                   <Text style={styles.powerChipIcon}>🪐</Text>
                   <Text style={[styles.powerChipTime, { color: COLORS.stone, textShadowColor: COLORS.stone }]}>
                     {Math.ceil(giantMsLeft / 1000)}s
+                  </Text>
+                </View>
+              )}
+              {homingMsLeft > 0 && (
+                <View style={[styles.powerChip, { borderColor: COLORS.purple }]}>
+                  <Text style={styles.powerChipIcon}>🎯</Text>
+                  <Text style={[styles.powerChipTime, { color: COLORS.purple, textShadowColor: COLORS.purple }]}>
+                    {Math.ceil(homingMsLeft / 1000)}s
                   </Text>
                 </View>
               )}

@@ -34,7 +34,7 @@ export interface TargetState {
   isGolden: boolean;
 }
 
-export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant';
+export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant' | 'homing';
 
 /** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
 export interface PickupState {
@@ -59,6 +59,14 @@ export interface BulletState {
   owner: 'player' | 'bot';
   /** Tint for a bot's shot, so it reads as visibly different from the player's. */
   color?: string;
+  /** How many more targets this bullet can punch through after its next
+   * hit (Piercing Rounds) — undefined/0 means it's destroyed on hit, same
+   * as before the upgrade existed. */
+  pierce?: number;
+  /** Steers toward the nearest live target each tick instead of flying
+   * straight (Homing Shot), set at spawn from whether the window was
+   * active then — a bullet's homing never turns on mid-flight. */
+  homing?: boolean;
 }
 
 export interface ScorePopupState {
@@ -81,7 +89,11 @@ export type UpgradeId =
   | 'extraCharge'
   | 'giantSize'
   | 'giantDuration'
-  | 'pickupChance';
+  | 'pickupChance'
+  | 'piercing'
+  | 'homingShot'
+  | 'wideStance'
+  | 'secondWind';
 
 /** Groups shop items by what they affect, so the Shop and Player screens can
  * present "a weapon upgrade" differently from "a luck upgrade" instead of

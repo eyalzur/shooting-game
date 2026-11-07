@@ -128,8 +128,13 @@ export function playGolden() {
   [784, 988, 1175].forEach((f, i) => tone(f, { duration: 0.12, type: 'triangle', gainPeak: 0.12, delay: i * 0.05 }));
 }
 
-export function playPickup(kind: 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant') {
-  if (kind === 'giant') {
+export function playPickup(
+  kind: 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant' | 'homing',
+) {
+  if (kind === 'homing') {
+    // A quick two-note lock-on blip, distinct from rapidFire's three-note chirp.
+    [880, 1318].forEach((f, i) => tone(f, { duration: 0.09, type: 'triangle', gainPeak: 0.1, delay: i * 0.06 }));
+  } else if (kind === 'giant') {
     // A low, swelling rise — the cannon puffing up, not darting like Magnet's sweep.
     tone(130, { duration: 0.35, type: 'sine', gainPeak: 0.16, freqEnd: 220 });
   } else if (kind === 'rapidFire') {

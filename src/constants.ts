@@ -9,6 +9,19 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.14.0',
+    date: '2026-11-07',
+    icon: '🆕',
+    title: 'Four new upgrades: Piercing Rounds, Homing Shot, Wide Stance, Second Wind',
+    bullets: [
+      'Piercing Rounds (Firepower): shots punch through to the target behind — one level, one target deeper.',
+      'Homing Shot (Abilities): bullets curve toward the nearest live target for the first 15s of every match, same as Double Shot and Spread Shot.',
+      'Wide Stance (Movement): a permanently wider catch radius, no pickup needed — stacks with Growth.',
+      'Second Wind (Luck): a pickup you miss refunds a little Stardust instead of just being gone, up to the owned number of times per match.',
+      'New Homing pickup (🎯) drops from broken targets alongside the others.',
+    ],
+  },
+  {
     version: '1.13.6',
     date: '2026-11-07',
     icon: '🔍',
@@ -385,6 +398,7 @@ export const PICKUP_SPREAD_CHANCE = 0.15;
 export const PICKUP_BOMB_CHANCE = 0.12;
 export const PICKUP_MAGNET_CHANCE = 0.13;
 export const PICKUP_GIANT_CHANCE = 0.1;
+export const PICKUP_HOMING_CHANCE = 0.08;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
@@ -408,6 +422,26 @@ export const GIANT_BASE_SIZE_MULT = 1.3;
 export const GIANT_BASE_DURATION_MS = 5000;
 export const GIANT_SIZE_MULTS = [1.4, 1.5, 1.6];
 export const GIANT_DURATION_BONUS_MS = [2000, 4000, 6000];
+
+// Homing Shot: while active, every bullet the player fires curves toward
+// the nearest live target instead of flying straight — HOMING_TURN_RATE is
+// how fast it can turn, in (unit-vector fraction)/sec.
+export const PICKUP_HOMING_DURATION_MS = 6000;
+export const HOMING_TURN_RATE = 5;
+
+// Piercing Rounds: a bullet survives its first N hits instead of dying on
+// the first one, punching through to the target behind it in the same lane.
+export const PIERCE_EXTRA_HITS = [1, 2, 3];
+
+// Wide Stance: a flat, permanent px bonus added to the cannon's catch
+// radius (on top of PLAYER_SIZE, and still multiplied by Giant if that's
+// also active) — unlike Giant, it's always on, no pickup needed.
+export const WIDE_STANCE_SIZE_BONUS = [8, 16, 24];
+
+// Second Wind: when a pickup falls off the bottom uncaught, refund a small
+// flat amount of Stardust instead — up to this many times per match. Not a
+// pickup itself, just a passive safety net against a bad catch.
+export const SECOND_WIND_REFUND = 8;
 
 // Spread shot: instead of one straight bullet, fires three — a center shot
 // plus two angled side shots. Bullets carry a unit direction (BulletState
@@ -508,6 +542,15 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     statAt: (level) => `${FIRE_MAX_CHARGES + (level > 0 ? EXTRA_CHARGE_BONUSES[level - 1] : 0)} charges`,
   },
   {
+    id: 'piercing',
+    icon: '⚔️',
+    name: 'PIERCING ROUNDS',
+    description: 'Shots punch through a target to hit the one behind it in the same lane — one level, one target deeper.',
+    category: 'weapon',
+    prices: [140, 230, 350],
+    statAt: (level) => `${1 + level} target${level > 0 ? 's' : ''}/shot`,
+  },
+  {
     id: 'doubleShot',
     icon: '⚡',
     name: 'DOUBLE SHOT',
@@ -526,6 +569,15 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     statAt: (level) => (level > 0 ? `3 bullets, ±${SPREAD_ANGLE_DEG}°` : '1 bullet/charge'),
   },
   {
+    id: 'homingShot',
+    icon: '🎯',
+    name: 'HOMING SHOT',
+    description: `Bullets curve toward the nearest live target for the first ${OWNED_FIRE_PATTERN_WINDOW_MS / 1000}s of every match.`,
+    category: 'ability',
+    prices: [200],
+    statAt: (level) => (level > 0 ? 'bullets home in' : 'straight shots'),
+  },
+  {
     id: 'moveSpeed',
     icon: '🏎️',
     name: 'SWIFT CANNON',
@@ -533,6 +585,15 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     category: 'movement',
     prices: [100, 170, 260],
     statAt: (level) => `×${(level > 0 ? MOVE_SPEED_UPGRADE_MULTS[level - 1] : 1).toFixed(1)} move speed`,
+  },
+  {
+    id: 'wideStance',
+    icon: '🦾',
+    name: 'WIDE STANCE',
+    description: 'A permanently wider catch radius, no pickup needed — stacks with Growth when that\'s active too.',
+    category: 'movement',
+    prices: [110, 190, 280],
+    statAt: (level) => `+${level > 0 ? WIDE_STANCE_SIZE_BONUS[level - 1] : 0}px catch`,
   },
   {
     id: 'pickupChance',
@@ -562,5 +623,14 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     prices: [110, 180, 270],
     statAt: (level) =>
       `${(GIANT_BASE_DURATION_MS + (level > 0 ? GIANT_DURATION_BONUS_MS[level - 1] : 0)) / 1000}s growth`,
+  },
+  {
+    id: 'secondWind',
+    icon: '🌬️',
+    name: 'SECOND WIND',
+    description: `A pickup you miss refunds ${SECOND_WIND_REFUND} Stardust instead of just being gone — one level, one more refund per match.`,
+    category: 'luck',
+    prices: [150, 240, 370],
+    statAt: (level) => `${level} refund${level === 1 ? '' : 's'}/match`,
   },
 ];
