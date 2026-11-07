@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.16.0',
+    date: '2026-11-07',
+    icon: '🚀',
+    title: 'The ship and the stars got real artwork',
+    bullets: [
+      'The cannon is now a hand-drawn fighter ship — nose, swept wings, twin tail fins, cockpit glass, gradient-shaded hull and engine glow — instead of a flat triangle.',
+      'Targets are proper 5-pointed stars with gradient shading and a cast-shadow twin for real depth, still tumbling in true 3D (rotateY) rather than spinning flat.',
+    ],
+  },
+  {
     version: '1.15.2',
     date: '2026-11-07',
     icon: '🎨',
