@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.3',
+    date: '2026-11-07',
+    icon: '🧲',
+    title: 'Magnet pulls pickups in twice as fast',
+    bullets: [
+      'While Magnet is active, every falling pickup drops twice as fast toward you, on top of the horizontal pull — a real speed boost, not just a nudge sideways.',
+    ],
+  },
+  {
     version: '1.13.2',
     date: '2026-11-07',
     icon: '📐',
@@ -362,6 +371,7 @@ export const PICKUP_CURRENCY_MAX = 15;
 // catching trivial for a few seconds.
 export const PICKUP_MAGNET_DURATION_MS = 6000;
 export const PICKUP_MAGNET_PULL_SPEED = 420; // px/sec
+export const PICKUP_MAGNET_FALL_MULTIPLIER = 2; // falls twice as fast while active
 
 // Giant: while active, the cannon itself grows, widening its catch radius
 // so the pickups that follow are easier to grab. The size upgrade only

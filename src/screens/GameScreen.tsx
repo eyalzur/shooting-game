@@ -58,6 +58,7 @@ import {
   PICKUP_GIANT_CHANCE,
   PICKUP_MAGNET_CHANCE,
   PICKUP_MAGNET_DURATION_MS,
+  PICKUP_MAGNET_FALL_MULTIPLIER,
   PICKUP_MAGNET_PULL_SPEED,
   PICKUP_RAPID_CHANCE,
   PICKUP_RAPID_DURATION_MS,
@@ -575,7 +576,8 @@ export default function GameScreen({
         const playerSize = playerSizeRef.current;
         const nextPickups: PickupState[] = [];
         for (const p of pickupsRef.current) {
-          const nextY = p.y + PICKUP_FALL_SPEED * dt;
+          const fallSpeed = magnetActive ? PICKUP_FALL_SPEED * PICKUP_MAGNET_FALL_MULTIPLIER : PICKUP_FALL_SPEED;
+          const nextY = p.y + fallSpeed * dt;
           let nextX = p.x;
           if (magnetActive) {
             const dx = playerXRef.current - p.x;
