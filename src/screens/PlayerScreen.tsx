@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import Player from '../components/Player';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, PLAYER_SIZE, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
+import { COLORS, PLAYER_SIZE, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
 import { UpgradeId } from '../types';
 import { playUiTap } from '../utils/sound';
 
@@ -71,52 +71,64 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
         <Player x={AVATAR_BOX / 2} y={AVATAR_BOX / 2 + PLAYER_SIZE / 4} />
       </View>
 
-      <View style={styles.statList}>
-        {SHOP_ITEMS.map((item) => {
-          const level = ownedUpgrades.filter((owned) => owned === item.id).length;
-          const owned = level > 0;
-          const maxLevel = item.prices.length;
-          const maxed = level >= maxLevel;
-          const category = SHOP_CATEGORIES.find((c) => c.id === item.category)!;
+      <View style={styles.categoryGrid}>
+        {SHOP_CATEGORIES.map((category) => {
+          const items = SHOP_ITEMS.filter((item) => item.category === category.id);
+          if (items.length === 0) return null;
           return (
-            <View
-              key={item.id}
-              style={[
-                styles.statRow,
-                owned && styles.statRowOwned,
-                { borderLeftWidth: 4, borderLeftColor: category.color },
-              ]}
-            >
-              <View style={[styles.statIconWrap, owned && styles.statIconWrapOwned]}>
-                <Text style={styles.statIcon}>{item.icon}</Text>
+            <View key={category.id} style={styles.categoryGroup}>
+              <View style={styles.categoryGroupHeader}>
+                <Text style={styles.categoryGroupIcon}>{category.icon}</Text>
+                <Text style={[styles.categoryGroupLabel, { color: category.color }]}>{category.label}</Text>
               </View>
-              <View style={styles.statBody}>
-                <View style={styles.statNameRow}>
-                  <Text style={styles.statName}>{item.name}</Text>
-                  <View style={[styles.categoryTag, { borderColor: `${category.color}66` }]}>
-                    <Text style={styles.categoryTagIcon}>{category.icon}</Text>
-                  </View>
-                  {maxLevel > 1 && (
-                    <Text style={styles.statLevel}>
-                      Lv {level}/{maxLevel}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.statDesc}>{item.description}</Text>
+              <View style={styles.badgeRow}>
+                {items.map((item) => {
+                  const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+                  const owned = level > 0;
+                  const maxLevel = item.prices.length;
+                  return (
+                    <View key={item.id} style={styles.badgeWrap}>
+                      <View
+                        style={[
+                          styles.badge,
+                          {
+                            borderColor: owned ? category.color : 'rgba(154,143,194,0.25)',
+                            backgroundColor: owned ? `${category.color}22` : 'rgba(16,12,38,0.5)',
+                            opacity: owned ? 1 : 0.4,
+                          },
+                        ]}
+                      >
+                        <Text style={styles.badgeIcon}>{item.icon}</Text>
+                      </View>
+                      {!owned && (
+                        <View style={styles.badgeCorner}>
+                          <Text style={styles.badgeCornerText}>🔒</Text>
+                        </View>
+                      )}
+                      {owned && maxLevel === 1 && (
+                        <View style={[styles.badgeCorner, { backgroundColor: category.color }]}>
+                          <Text style={styles.badgeCornerCheck}>✓</Text>
+                        </View>
+                      )}
+                      {maxLevel > 1 && (
+                        <View style={styles.dotsRow}>
+                          {Array.from({ length: maxLevel }, (_, i) => (
+                            <View
+                              key={i}
+                              style={[
+                                styles.dot,
+                                {
+                                  backgroundColor: i < level ? category.color : 'rgba(154,143,194,0.3)',
+                                },
+                              ]}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
-              {!owned ? (
-                <Text style={styles.statLocked}>
-                  🔒 {CURRENCY_ICON}
-                  {item.prices[0]}
-                </Text>
-              ) : maxed ? (
-                <Text style={styles.statOwned}>✓</Text>
-              ) : (
-                <Text style={styles.statPartial}>
-                  ✓ {CURRENCY_ICON}
-                  {item.prices[level]}
-                </Text>
-              )}
             </View>
           );
         })}
@@ -214,95 +226,81 @@ const styles = StyleSheet.create({
     shadowRadius: 36,
     shadowOffset: { width: 0, height: 0 },
   },
-  statList: {
-    gap: 12,
-    alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: 24,
-  },
-  statRow: {
-    flexDirection: 'row',
+  categoryGrid: {
+    gap: 22,
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
-    padding: 14,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.5)',
+    paddingHorizontal: 24,
+  },
+  categoryGroup: {
+    width: '100%',
+  },
+  categoryGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  categoryGroupIcon: {
+    fontSize: 12,
+  },
+  categoryGroupLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 14,
-    opacity: 0.75,
   },
-  statRowOwned: {
-    borderColor: COLORS.blue,
-    backgroundColor: 'rgba(77,155,255,0.1)',
-    opacity: 1,
+  badgeWrap: {
+    alignItems: 'center',
+    width: 56,
+    position: 'relative',
   },
-  statIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(154,143,194,0.12)',
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  statIconWrapOwned: {
-    backgroundColor: 'rgba(90,216,255,0.14)',
+  badgeIcon: {
+    fontSize: 24,
   },
-  statIcon: {
-    fontSize: 18,
-  },
-  statBody: {
-    flex: 1,
-  },
-  statNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statName: {
-    color: COLORS.textPrimary,
-    fontSize: 13,
-    fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  statLevel: {
-    color: COLORS.cyan,
-    fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  categoryTag: {
+  badgeCorner: {
+    position: 'absolute',
+    top: -4,
+    right: -2,
     width: 18,
     height: 18,
     borderRadius: 9,
-    borderWidth: 1,
+    backgroundColor: COLORS.background,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  categoryTagIcon: {
-    fontSize: 9,
+  badgeCornerText: {
+    fontSize: 8,
   },
-  statDesc: {
-    color: COLORS.textSecondary,
-    fontSize: 10.5,
-    marginTop: 3,
-    lineHeight: 14,
-  },
-  statOwned: {
-    color: COLORS.blue,
-    fontSize: 20,
+  badgeCornerCheck: {
+    fontSize: 10,
     fontWeight: 'bold',
+    color: COLORS.textPrimary,
   },
-  statPartial: {
-    color: COLORS.cyan,
-    fontSize: 11,
-    fontWeight: '700',
+  dotsRow: {
+    flexDirection: 'row',
+    gap: 3,
+    marginTop: 6,
   },
-  statLocked: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    fontWeight: '600',
+  dot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
   shopButton: {
     marginTop: 24,

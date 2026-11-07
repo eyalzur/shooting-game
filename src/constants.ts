@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.13.1',
+    date: '2026-11-07',
+    icon: '🧿',
+    title: 'Player screen redesigned as an icon loadout',
+    bullets: [
+      'Player now shows a compact grid of icon badges grouped by category instead of full text cards — bright and colored when owned, dimmed with a lock when not.',
+      'Level shows as small dots under the icon, no more "Lv 2/3" text.',
+    ],
+  },
+  {
     version: '1.13.0',
     date: '2026-11-07',
     icon: '🍀',
