@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.14.1',
+    date: '2026-11-07',
+    icon: '🔘',
+    title: 'Purchase buttons made uniform',
+    bullets: [
+      'Every buy button in the Shop and Stardust packs is now the same fixed size, with shorter text ("190" / "MAX" instead of a Stardust icon plus "MAXED") so prices line up cleanly no matter how many digits.',
+    ],
+  },
+  {
     version: '1.14.0',
     date: '2026-11-07',
     icon: '🆕',

@@ -73,7 +73,9 @@ export default function CurrencyShopScreen({ currency, onBuyPack, onBack }: Prop
               </Text>
             </View>
             <View style={styles.buyButton}>
-              <Text style={styles.buyButtonText}>{pack.priceLabel}</Text>
+              <Text style={styles.buyButtonText} numberOfLines={1}>
+                {pack.priceLabel}
+              </Text>
             </View>
           </PressableScale>
         ))}
@@ -188,8 +190,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   buyButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    width: 64,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: COLORS.gold,
@@ -199,5 +203,6 @@ const styles = StyleSheet.create({
     color: COLORS.textPrimary,
     fontSize: 13,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
 });

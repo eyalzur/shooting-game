@@ -75,7 +75,9 @@ function ShopItemCard({
           !maxed && !affordable && styles.buyButtonDisabled,
         ]}
       >
-        <Text style={styles.buyButtonText}>{maxed ? 'MAXED' : `${CURRENCY_ICON} ${nextPrice}`}</Text>
+        <Text style={styles.buyButtonText} numberOfLines={1}>
+          {maxed ? 'MAX' : nextPrice}
+        </Text>
       </View>
     </PressableScale>
   );
@@ -359,8 +361,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   buyButton: {
-    paddingVertical: 9,
-    paddingHorizontal: 12,
+    width: 56,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 14,
     borderWidth: 1.5,
   },
@@ -375,9 +379,10 @@ const styles = StyleSheet.create({
   },
   buyButtonText: {
     color: COLORS.textPrimary,
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: 'bold',
     letterSpacing: 0.5,
+    textAlign: 'center',
   },
   comingSoon: {
     color: COLORS.textSecondary,
