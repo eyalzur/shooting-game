@@ -48,14 +48,18 @@ function ShopItemCard({
       </View>
       <View style={styles.cardBody}>
         <View style={styles.cardNameRow}>
-          <Text style={styles.cardName}>{item.name}</Text>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {item.name}
+          </Text>
           {maxLevel > 1 && (
             <Text style={[styles.cardLevel, { color: accentColor }]}>
               Lv {level}/{maxLevel}
             </Text>
           )}
         </View>
-        <Text style={styles.cardDesc}>{item.description}</Text>
+        <Text style={styles.cardDesc} numberOfLines={2}>
+          {item.description}
+        </Text>
         <View style={styles.statRow}>
           <Text style={[styles.statNow, { color: accentColor }]}>{nowStat}</Text>
           {nextStat && (
@@ -293,6 +297,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
+    height: 128,
     padding: 14,
     borderRadius: 18,
     borderWidth: 1.5,
