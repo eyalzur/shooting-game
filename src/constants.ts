@@ -291,7 +291,7 @@ export const PICKUP_CURRENCY_MAX = 15;
 // the cannon's x as it falls, instead of dropping straight down — makes
 // catching trivial for a few seconds.
 export const PICKUP_MAGNET_DURATION_MS = 6000;
-export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
+export const PICKUP_MAGNET_PULL_SPEED = 420; // px/sec
 
 // Spread shot: instead of one straight bullet, fires three — a center shot
 // plus two angled side shots. Bullets carry a unit direction (BulletState
