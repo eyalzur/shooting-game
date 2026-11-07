@@ -5,7 +5,16 @@ import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
 import { COLORS, CURRENCY_ICON, CURRENCY_NAME, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
 import { ShopCategory, ShopItemDef, UpgradeId } from '../types';
+import { shadeColor } from '../utils/color';
 import { playPurchase, playUiTap } from '../utils/sound';
+
+// Every category already owns a hue (weapon=red, ability=pink, movement=
+// green, luck=gold), so "can't afford" needs a fifth, distinct color or it
+// blends straight into whichever category happens to be red/orange-ish.
+// Blue isn't used by any category or tier label, and reads as "locked/cold"
+// rather than another warm "go" color.
+const UNAFFORDABLE_COLOR = COLORS.blue;
+const UNAFFORDABLE_TEXT_COLOR = shadeColor(COLORS.blue, 35);
 
 interface Props {
   currency: number;
@@ -456,7 +465,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,12,38,0.65)',
   },
   suggestCardDisabled: {
-    borderColor: 'rgba(255,82,82,0.4)',
+    borderColor: `${UNAFFORDABLE_COLOR}66`,
   },
   suggestTier: {
     fontSize: 8.5,
@@ -498,11 +507,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   suggestPriceTagDisabled: {
-    borderColor: COLORS.red,
-    backgroundColor: 'rgba(255,82,82,0.12)',
+    borderColor: UNAFFORDABLE_COLOR,
+    backgroundColor: `${UNAFFORDABLE_COLOR}1f`,
   },
   suggestPriceTextDisabled: {
-    color: COLORS.redLight,
+    color: UNAFFORDABLE_TEXT_COLOR,
   },
   categoryRow: {
     flexDirection: 'row',
@@ -625,8 +634,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(92,255,157,0.14)',
   },
   buyButtonDisabled: {
-    borderColor: COLORS.red,
-    backgroundColor: 'rgba(255,82,82,0.12)',
+    borderColor: UNAFFORDABLE_COLOR,
+    backgroundColor: `${UNAFFORDABLE_COLOR}1f`,
   },
   buyButtonText: {
     color: COLORS.textPrimary,
@@ -639,6 +648,6 @@ const styles = StyleSheet.create({
     color: COLORS.green,
   },
   buyButtonTextDisabled: {
-    color: COLORS.redLight,
+    color: UNAFFORDABLE_TEXT_COLOR,
   },
 });

@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.16.1',
+    date: '2026-11-07',
+    icon: '🔵',
+    title: "\"Can't afford\" no longer looks like a category's own color",
+    bullets: [
+      'Every category already owns a color (Firepower is red, Luck is gold, etc.), so the old red "can\'t afford yet" state blended right into whichever category happened to be red or gold-ish. It\'s blue now — a color no category uses, so it always stands apart.',
+    ],
+  },
+  {
     version: '1.16.0',
     date: '2026-11-07',
     icon: '🚀',
