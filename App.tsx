@@ -90,6 +90,11 @@ export default function App() {
     });
   };
 
+  const resetInventory = () => {
+    setOwnedUpgrades([]);
+    saveOwnedUpgrades([]);
+  };
+
   const handleExit = (finalScore: number) => {
     setLastScore(finalScore);
     if (finalScore > bestScore) {
@@ -158,6 +163,7 @@ export default function App() {
           <PlayerScreen
             ownedUpgrades={ownedUpgrades}
             onOpenShop={() => setPhase('shop')}
+            onResetInventory={resetInventory}
             onBack={() => setPhase('home')}
           />
         )}

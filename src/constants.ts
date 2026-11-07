@@ -299,6 +299,11 @@ export const PICKUP_MAGNET_PULL_SPEED = 260; // px/sec
 // bullet ramps up with difficulty/Hot Rounds exactly like a straight one.
 export const SPREAD_ANGLE_DEG = 5;
 
+// When Double Shot and Spread Shot are both active, the 6 bullets fire as a
+// 3-pulse ripple (straight pair, then left pair, then right pair) spaced by
+// this many ms, instead of all leaving at once.
+export const COMBO_STAGGER_MS = 70;
+
 // Stardust: the shop currency. Earned mid-match from currency pickups, and
 // as a reward for winning a vs-bot match — kept permanently either way,
 // through a loss, a tab close, whatever.

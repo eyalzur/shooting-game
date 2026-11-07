@@ -66,6 +66,7 @@ import {
   RESPAWN_MIN_MS,
   SCORE_POPUP_MS,
   SPREAD_ANGLE_DEG,
+  COMBO_STAGGER_MS,
   STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
@@ -268,6 +269,7 @@ export default function GameScreen({
   const botAimJitterRef = useRef(0);
   const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
+  const burstTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const pickupsRef = useRef<PickupState[]>([]);
   // Double-shot / spread-shot "active until" timestamps — a single
@@ -346,6 +348,11 @@ export default function GameScreen({
     scoreRef.current > botScoreRef.current ? 'win' : scoreRef.current < botScoreRef.current ? 'lose' : 'draw';
   const resultEnter = useRef(new Animated.Value(0)).current;
   const winBurst = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    return () => {
+      burstTimeoutsRef.current.forEach(clearTimeout);
+    };
+  }, []);
   useEffect(() => {
     if (!matchOver) return;
     if (!isVsBot) {
@@ -702,40 +709,8 @@ export default function GameScreen({
     };
   }, [width, playAreaHeight]);
 
-  const fire = () => {
-    if (chargesRef.current < 1) return;
+  const spawnShots = (shots: { dx: number; dirX: number; dirY: number }[]) => {
     if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
-    chargesRef.current -= 1;
-    setCharges(chargesRef.current);
-    // Spread and double stack: both active fires 3 angled lanes, each as a
-    // side-by-side pair (6 bullets). Either alone keeps its own pattern.
-    // Same charge cost regardless.
-    const now = Date.now();
-    const hasSpread = ENHANCEMENTS_ENABLED && spreadUntilRef.current > now;
-    const hasDouble = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > now;
-    let shots: { dx: number; dirX: number; dirY: number }[];
-    if (hasSpread && hasDouble) {
-      const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
-      const lanes = [-rad, 0, rad].map((a) => ({ dirX: -Math.sin(-a), dirY: -Math.cos(-a) }));
-      shots = lanes.flatMap((l) => [
-        { dx: -10, dirX: l.dirX, dirY: l.dirY },
-        { dx: 10, dirX: l.dirX, dirY: l.dirY },
-      ]);
-    } else if (hasSpread) {
-      const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
-      shots = [
-        { dx: 0, dirX: -Math.sin(rad), dirY: -Math.cos(rad) },
-        { dx: 0, dirX: 0, dirY: -1 },
-        { dx: 0, dirX: Math.sin(rad), dirY: -Math.cos(rad) },
-      ];
-    } else if (hasDouble) {
-      shots = [
-        { dx: -10, dirX: 0, dirY: -1 },
-        { dx: 10, dirX: 0, dirY: -1 },
-      ];
-    } else {
-      shots = [{ dx: 0, dirX: 0, dirY: -1 }];
-    }
     bulletsRef.current = [
       ...bulletsRef.current,
       ...shots.map((s) => ({
@@ -748,9 +723,50 @@ export default function GameScreen({
         color: COLORS.blue,
       })),
     ];
-    if (!matchOverRef.current) shotsFiredRef.current += shots.length;
     setBullets(bulletsRef.current);
     playShoot();
+  };
+
+  const fire = () => {
+    if (chargesRef.current < 1) return;
+    if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
+    chargesRef.current -= 1;
+    setCharges(chargesRef.current);
+    const now = Date.now();
+    const hasSpread = ENHANCEMENTS_ENABLED && spreadUntilRef.current > now;
+    const hasDouble = ENHANCEMENTS_ENABLED && rapidFireUntilRef.current > now;
+    const rad = (SPREAD_ANGLE_DEG * Math.PI) / 180;
+    const lanes = {
+      center: { dirX: 0, dirY: -1 },
+      left: { dirX: -Math.sin(rad), dirY: -Math.cos(rad) },
+      right: { dirX: Math.sin(rad), dirY: -Math.cos(rad) },
+    };
+    const pair = (l: { dirX: number; dirY: number }) => [
+      { dx: -10, ...l },
+      { dx: 10, ...l },
+    ];
+    if (hasSpread && hasDouble) {
+      // A quick 3-pulse ripple — straight pair, then the two angled lanes a
+      // beat later each side — instead of all 6 bullets leaving at once.
+      shotsFiredRef.current += matchOverRef.current ? 0 : 6;
+      spawnShots(pair(lanes.center));
+      const t1 = setTimeout(() => {
+        if (!matchOverRef.current) spawnShots(pair(lanes.left));
+      }, COMBO_STAGGER_MS);
+      const t2 = setTimeout(() => {
+        if (!matchOverRef.current) spawnShots(pair(lanes.right));
+      }, COMBO_STAGGER_MS * 2);
+      burstTimeoutsRef.current.push(t1, t2);
+    } else if (hasSpread) {
+      shotsFiredRef.current += matchOverRef.current ? 0 : 3;
+      spawnShots([{ dx: 0, ...lanes.left }, { dx: 0, ...lanes.center }, { dx: 0, ...lanes.right }]);
+    } else if (hasDouble) {
+      shotsFiredRef.current += matchOverRef.current ? 0 : 2;
+      spawnShots(pair(lanes.center));
+    } else {
+      shotsFiredRef.current += matchOverRef.current ? 0 : 1;
+      spawnShots([{ dx: 0, ...lanes.center }]);
+    }
   };
 
   // A touch does one of two things, decided by how it ends: let go quickly
