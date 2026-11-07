@@ -9,6 +9,17 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.15.0',
+    date: '2026-11-07',
+    icon: '🗺️',
+    title: 'Shop redesigned around categories and suggestions',
+    bullets: [
+      'Shop now opens on 4 category tiles instead of one long list — tap one to drill into just that category, with a back arrow to return.',
+      'A "Suggested for you" row of 3 picks leads both the Shop home and every category: a cheap pick, a good-value pick, and a best-value pick priced close to the middle one.',
+      'Buying directly from a suggestion card works the same as buying from the full list.',
+    ],
+  },
+  {
     version: '1.14.2',
     date: '2026-11-07',
     icon: '📏',

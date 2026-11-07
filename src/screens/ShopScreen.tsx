@@ -4,7 +4,7 @@ import PressableScale from '../components/PressableScale';
 import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
 import { COLORS, CURRENCY_ICON, CURRENCY_NAME, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
-import { ShopItemDef, UpgradeId } from '../types';
+import { ShopCategory, ShopItemDef, UpgradeId } from '../types';
 import { playPurchase, playUiTap } from '../utils/sound';
 
 interface Props {
@@ -13,6 +13,76 @@ interface Props {
   onPurchase: (id: UpgradeId) => void;
   onOpenCurrencyShop: () => void;
   onBack: () => void;
+}
+
+// A cheap pick, a mid one, and a third priced close to the mid one but a
+// clearly bigger jump — the classic "look how much more the third gets you"
+// shape. Picked purely by price (cheapest 3 not-yet-maxed purchases), the
+// tier badges below are what sell the shape, not a hand-scored "value".
+const SUGGESTION_TIERS = [
+  { label: 'CHEAP PICK', icon: '🪙', color: COLORS.textSecondary },
+  { label: 'GOOD VALUE', icon: '⚖️', color: COLORS.cyan },
+  { label: 'BEST VALUE', icon: '🔥', color: COLORS.gold },
+];
+
+function pickSuggestions(items: ShopItemDef[], ownedUpgrades: UpgradeId[], count: number) {
+  return items
+    .map((item) => {
+      const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+      return level >= item.prices.length ? null : { item, level, nextPrice: item.prices[level] };
+    })
+    .filter((x): x is { item: ShopItemDef; level: number; nextPrice: number } => x !== null)
+    .sort((a, b) => a.nextPrice - b.nextPrice)
+    .slice(0, count);
+}
+
+function SuggestionCard({
+  item,
+  level,
+  currency,
+  tier,
+  categoryColor,
+  onBuy,
+}: {
+  item: ShopItemDef;
+  level: number;
+  currency: number;
+  tier: { label: string; icon: string; color: string };
+  categoryColor: string;
+  onBuy: () => void;
+}) {
+  const nextPrice = item.prices[level];
+  const affordable = currency >= nextPrice;
+
+  return (
+    <PressableScale
+      onPress={() => {
+        if (affordable) onBuy();
+      }}
+      scaleTo={0.95}
+      style={[styles.suggestCard, !affordable && styles.suggestCardDisabled]}
+    >
+      <Text style={[styles.suggestTier, { color: tier.color }]} numberOfLines={1}>
+        {tier.icon} {tier.label}
+      </Text>
+      <View
+        style={[
+          styles.suggestIconWrap,
+          { backgroundColor: `${categoryColor}26`, borderColor: `${categoryColor}55` },
+        ]}
+      >
+        <Text style={styles.suggestIcon}>{item.icon}</Text>
+      </View>
+      <Text style={styles.suggestName} numberOfLines={2}>
+        {item.name}
+      </Text>
+      <View style={[styles.suggestPriceTag, { borderColor: categoryColor, backgroundColor: `${categoryColor}26` }]}>
+        <Text style={styles.suggestPriceText} numberOfLines={1}>
+          {nextPrice}
+        </Text>
+      </View>
+    </PressableScale>
+  );
 }
 
 function ShopItemCard({
@@ -87,32 +157,74 @@ function ShopItemCard({
   );
 }
 
+function CategoryTile({
+  category,
+  ownedCount,
+  totalCount,
+  onPress,
+}: {
+  category: (typeof SHOP_CATEGORIES)[number];
+  ownedCount: number;
+  totalCount: number;
+  onPress: () => void;
+}) {
+  return (
+    <PressableScale
+      onPress={onPress}
+      scaleTo={0.96}
+      style={[styles.categoryTile, { borderColor: `${category.color}55`, backgroundColor: `${category.color}14` }]}
+    >
+      <Text style={styles.categoryTileIcon}>{category.icon}</Text>
+      <Text style={[styles.categoryTileLabel, { color: category.color }]} numberOfLines={1}>
+        {category.label}
+      </Text>
+      <Text style={styles.categoryTileCount}>
+        {ownedCount}/{totalCount}
+      </Text>
+    </PressableScale>
+  );
+}
+
 export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpenCurrencyShop, onBack }: Props) {
   const { width, height } = useWindowDimensions();
   const [burstEvent, setBurstEvent] = useState<PurchaseBurstEvent | null>(null);
   const burstIdRef = useRef(0);
+  const [openCategoryId, setOpenCategoryId] = useState<ShopCategory | null>(null);
+  const openCategory = openCategoryId ? SHOP_CATEGORIES.find((c) => c.id === openCategoryId)! : null;
+
+  const goBack = () => {
+    playUiTap();
+    if (openCategory) setOpenCategoryId(null);
+    else onBack();
+  };
+
+  const handleBuy = (item: ShopItemDef, level: number, categoryColor: string) => {
+    playPurchase();
+    onPurchase(item.id);
+    burstIdRef.current += 1;
+    const nextLevel = level + 1;
+    setBurstEvent({
+      id: burstIdRef.current,
+      icon: item.icon,
+      title: item.name,
+      sub: item.prices.length > 1 ? `LEVEL ${nextLevel}` : 'EQUIPPED',
+      color: categoryColor,
+    });
+  };
+
+  const globalSuggestions = pickSuggestions(SHOP_ITEMS, ownedUpgrades, 3);
+  const categoryItems = openCategory ? SHOP_ITEMS.filter((item) => item.category === openCategory.id) : [];
+  const categorySuggestions = openCategory ? pickSuggestions(categoryItems, ownedUpgrades, 3) : [];
 
   return (
-    <Pressable
-      style={[styles.container, { width, height }]}
-      onPress={() => {
-        playUiTap();
-        onBack();
-      }}
-    >
+    <Pressable style={[styles.container, { width, height }]} onPress={goBack}>
       <Starfield width={width} height={height} level={0} />
 
-      <PressableScale
-        onPress={() => {
-          playUiTap();
-          onBack();
-        }}
-        style={styles.backButton}
-      >
-        <Text style={styles.backButtonText}>⟵ HOME</Text>
+      <PressableScale onPress={goBack} style={styles.backButton}>
+        <Text style={styles.backButtonText}>{openCategory ? '⟵ SHOP' : '⟵ HOME'}</Text>
       </PressableScale>
 
-      <Text style={styles.title}>SHOP</Text>
+      <Text style={styles.title}>{openCategory ? openCategory.label : 'SHOP'}</Text>
 
       <View style={styles.balance}>
         <Text style={styles.balanceIcon}>{CURRENCY_ICON}</Text>
@@ -132,47 +244,88 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
       </PressableScale>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {SHOP_CATEGORIES.map((category) => {
-          const items = SHOP_ITEMS.filter((item) => item.category === category.id);
-          if (items.length === 0) return null;
-          return (
-            <View key={category.id} style={styles.categoryBlock}>
-              <View style={styles.categoryHeader}>
-                <Text style={styles.categoryIcon}>{category.icon}</Text>
-                <Text style={[styles.categoryLabel, { color: category.color }]}>{category.label}</Text>
-                <View style={[styles.categoryLine, { backgroundColor: `${category.color}40` }]} />
+        {!openCategory ? (
+          <>
+            {globalSuggestions.length > 0 && (
+              <View style={styles.suggestBlock}>
+                <Text style={styles.suggestHeading}>SUGGESTED FOR YOU</Text>
+                <View style={styles.suggestRow}>
+                  {globalSuggestions.map(({ item, level }, i) => {
+                    const category = SHOP_CATEGORIES.find((c) => c.id === item.category)!;
+                    return (
+                      <SuggestionCard
+                        key={item.id}
+                        item={item}
+                        level={level}
+                        currency={currency}
+                        tier={SUGGESTION_TIERS[i]}
+                        categoryColor={category.color}
+                        onBuy={() => handleBuy(item, level, category.color)}
+                      />
+                    );
+                  })}
+                </View>
               </View>
-              <View style={styles.itemStack}>
-                {items.map((item) => {
-                  const level = ownedUpgrades.filter((owned) => owned === item.id).length;
-                  return (
-                    <ShopItemCard
+            )}
+
+            <View style={styles.categoryGrid}>
+              {SHOP_CATEGORIES.map((category) => {
+                const items = SHOP_ITEMS.filter((item) => item.category === category.id);
+                const ownedCount = items.filter((item) => ownedUpgrades.includes(item.id)).length;
+                return (
+                  <CategoryTile
+                    key={category.id}
+                    category={category}
+                    ownedCount={ownedCount}
+                    totalCount={items.length}
+                    onPress={() => {
+                      playUiTap();
+                      setOpenCategoryId(category.id);
+                    }}
+                  />
+                );
+              })}
+            </View>
+            <Text style={styles.comingSoon}>More upgrades coming soon.</Text>
+          </>
+        ) : (
+          <>
+            {categorySuggestions.length > 0 && (
+              <View style={styles.suggestBlock}>
+                <Text style={styles.suggestHeading}>SUGGESTED IN {openCategory.label}</Text>
+                <View style={styles.suggestRow}>
+                  {categorySuggestions.map(({ item, level }, i) => (
+                    <SuggestionCard
                       key={item.id}
                       item={item}
                       level={level}
                       currency={currency}
-                      accentColor={category.color}
-                      onBuy={() => {
-                        playPurchase();
-                        onPurchase(item.id);
-                        burstIdRef.current += 1;
-                        const nextLevel = level + 1;
-                        setBurstEvent({
-                          id: burstIdRef.current,
-                          icon: item.icon,
-                          title: item.name,
-                          sub: item.prices.length > 1 ? `LEVEL ${nextLevel}` : 'EQUIPPED',
-                          color: category.color,
-                        });
-                      }}
+                      tier={SUGGESTION_TIERS[i]}
+                      categoryColor={openCategory.color}
+                      onBuy={() => handleBuy(item, level, openCategory.color)}
                     />
-                  );
-                })}
+                  ))}
+                </View>
               </View>
+            )}
+
+            <View style={styles.itemStack}>
+              {categoryItems.map((item) => {
+                const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+                return (
+                  <ShopItemCard
+                    key={item.id}
+                    item={item}
+                    level={level}
+                    currency={currency}
+                    accentColor={openCategory.color}
+                    onBuy={() => handleBuy(item, level, openCategory.color)}
+                  />
+                );
+              })}
             </View>
-          );
-        })}
-        <Text style={styles.comingSoon}>More upgrades coming soon.</Text>
+          </>
+        )}
       </ScrollView>
       <PurchaseBurst event={burstEvent} />
     </Pressable>
@@ -262,35 +415,110 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
   },
-  categoryBlock: {
+  suggestBlock: {
     width: '100%',
     maxWidth: 360,
-    marginBottom: 18,
+    marginBottom: 22,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginBottom: 10,
-  },
-  categoryIcon: {
-    fontSize: 13,
-  },
-  categoryLabel: {
-    fontSize: 11.5,
+  suggestHeading: {
+    color: COLORS.textSecondary,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 2,
+    marginBottom: 10,
+    textAlign: 'center',
   },
-  categoryLine: {
+  suggestRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  suggestCard: {
     flex: 1,
-    height: 1.5,
-    borderRadius: 1,
-    marginLeft: 4,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 6,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(16,12,38,0.65)',
+  },
+  suggestCardDisabled: {
+    opacity: 0.5,
+  },
+  suggestTier: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  suggestIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  suggestIcon: {
+    fontSize: 18,
+  },
+  suggestName: {
+    color: COLORS.textPrimary,
+    fontSize: 10.5,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 8,
+    height: 26,
+  },
+  suggestPriceTag: {
+    marginTop: 8,
+    minWidth: 44,
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+  },
+  suggestPriceText: {
+    color: COLORS.textPrimary,
+    fontSize: 11.5,
+    fontWeight: 'bold',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    width: '100%',
+    maxWidth: 360,
+    gap: 12,
+  },
+  categoryTile: {
+    width: 168,
+    paddingVertical: 20,
+    alignItems: 'center',
+    borderRadius: 20,
+    borderWidth: 1.5,
+  },
+  categoryTileIcon: {
+    fontSize: 24,
+  },
+  categoryTileLabel: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    marginTop: 8,
+  },
+  categoryTileCount: {
+    color: COLORS.textSecondary,
+    fontSize: 10.5,
+    fontWeight: '600',
+    marginTop: 4,
   },
   itemStack: {
     gap: 12,
     alignItems: 'center',
     width: '100%',
+    maxWidth: 360,
   },
   card: {
     flexDirection: 'row',
@@ -392,7 +620,7 @@ const styles = StyleSheet.create({
   comingSoon: {
     color: COLORS.textSecondary,
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 16,
     letterSpacing: 0.5,
   },
 });
