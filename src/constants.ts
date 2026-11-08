@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.17.0',
+    date: '2026-11-08',
+    icon: '📐',
+    title: 'Shop buttons are bolder, categories fit without scrolling',
+    bullets: [
+      'Buy buttons now carry a real tinted background in every state (affordable, maxed, can\'t afford) — not just a border — so they\'re noticeable at a glance.',
+      'Each category list is redesigned to fit on one screen — smaller item cards, descriptions trimmed, the redundant per-category "Suggested" row removed (the Shop home\'s Suggested row already covers that). No more scrolling to see what a category offers.',
+    ],
+  },
+  {
     version: '1.16.2',
     date: '2026-11-07',
     icon: '🩵',

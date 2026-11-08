@@ -92,7 +92,7 @@ function SuggestionCard({
         style={[
           styles.suggestPriceTag,
           affordable
-            ? { borderColor: categoryColor, backgroundColor: `${categoryColor}26` }
+            ? { borderColor: categoryColor, backgroundColor: `${categoryColor}40` }
             : styles.suggestPriceTagDisabled,
         ]}
       >
@@ -149,9 +149,6 @@ function ShopItemCard({
             </Text>
           )}
         </View>
-        <Text style={styles.cardDesc} numberOfLines={2}>
-          {item.description}
-        </Text>
         <View style={styles.statRow}>
           <Text style={[styles.statNow, { color: accentColor }]}>{nowStat}</Text>
           {nextStat && (
@@ -166,7 +163,7 @@ function ShopItemCard({
       <View
         style={[
           styles.buyButton,
-          { borderColor: accentColor, backgroundColor: `${accentColor}26` },
+          { borderColor: accentColor, backgroundColor: `${accentColor}40` },
           maxed && styles.buyButtonOwned,
           !maxed && !affordable && styles.buyButtonDisabled,
         ]}
@@ -247,7 +244,6 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
 
   const globalSuggestions = pickSuggestions(SHOP_ITEMS, ownedUpgrades, 3);
   const categoryItems = openCategory ? SHOP_ITEMS.filter((item) => item.category === openCategory.id) : [];
-  const categorySuggestions = openCategory ? pickSuggestions(categoryItems, ownedUpgrades, 3) : [];
 
   return (
     <Pressable style={[styles.container, { width, height }]} onPress={goBack}>
@@ -314,42 +310,21 @@ export default function ShopScreen({ currency, ownedUpgrades, onPurchase, onOpen
             </View>
           )
         ) : (
-          <>
-            {categorySuggestions.length > 0 && (
-              <View style={styles.suggestBlock}>
-                <Text style={styles.suggestHeading}>SUGGESTED IN {openCategory.label}</Text>
-                <View style={styles.suggestRow}>
-                  {categorySuggestions.map(({ item, level }, i) => (
-                    <SuggestionCard
-                      key={item.id}
-                      item={item}
-                      level={level}
-                      currency={currency}
-                      tier={SUGGESTION_TIERS[i]}
-                      categoryColor={openCategory.color}
-                      onBuy={() => handleBuy(item, level, openCategory.color)}
-                    />
-                  ))}
-                </View>
-              </View>
-            )}
-
-            <View style={styles.itemStack}>
-              {categoryItems.map((item) => {
-                const level = ownedUpgrades.filter((owned) => owned === item.id).length;
-                return (
-                  <ShopItemCard
-                    key={item.id}
-                    item={item}
-                    level={level}
-                    currency={currency}
-                    accentColor={openCategory.color}
-                    onBuy={() => handleBuy(item, level, openCategory.color)}
-                  />
-                );
-              })}
-            </View>
-          </>
+          <View style={styles.itemStack}>
+            {categoryItems.map((item) => {
+              const level = ownedUpgrades.filter((owned) => owned === item.id).length;
+              return (
+                <ShopItemCard
+                  key={item.id}
+                  item={item}
+                  level={level}
+                  currency={currency}
+                  accentColor={openCategory.color}
+                  onBuy={() => handleBuy(item, level, openCategory.color)}
+                />
+              );
+            })}
+          </View>
         )}
       </ScrollView>
       <PurchaseBurst event={burstEvent} />
@@ -397,8 +372,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 8,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 8,
   },
   getMoreButton: {
     paddingVertical: 6,
@@ -407,7 +382,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,210,90,0.4)',
     backgroundColor: 'rgba(255,210,90,0.1)',
-    marginBottom: 14,
+    marginBottom: 10,
   },
   getMoreButtonText: {
     color: COLORS.gold,
@@ -468,7 +443,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(16,12,38,0.65)',
   },
   suggestCardDisabled: {
-    borderColor: `${UNAFFORDABLE_COLOR}66`,
+    borderColor: UNAFFORDABLE_COLOR,
+    backgroundColor: `${UNAFFORDABLE_COLOR}1f`,
   },
   suggestTier: {
     fontSize: 8.5,
@@ -511,7 +487,7 @@ const styles = StyleSheet.create({
   },
   suggestPriceTagDisabled: {
     borderColor: UNAFFORDABLE_COLOR,
-    backgroundColor: `${UNAFFORDABLE_COLOR}1f`,
+    backgroundColor: `${UNAFFORDABLE_COLOR}40`,
   },
   suggestPriceTextDisabled: {
     color: UNAFFORDABLE_TEXT_COLOR,
@@ -522,7 +498,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 320,
     gap: 22,
-    marginBottom: 18,
+    marginBottom: 14,
   },
   categoryIconWrap: {
     alignItems: 'center',
@@ -546,7 +522,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   itemStack: {
-    gap: 12,
+    gap: 9,
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
@@ -556,24 +532,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     maxWidth: 360,
-    height: 128,
-    padding: 14,
-    borderRadius: 18,
+    height: 72,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     borderWidth: 1.5,
     borderColor: COLORS.border,
     backgroundColor: 'rgba(16,12,38,0.65)',
-    gap: 14,
+    gap: 12,
   },
   cardIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardIcon: {
-    fontSize: 20,
+    fontSize: 16,
   },
   cardBody: {
     flex: 1,
@@ -585,38 +561,32 @@ const styles = StyleSheet.create({
   },
   cardName: {
     color: COLORS.textPrimary,
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: 'bold',
-    letterSpacing: 1,
-  },
-  cardLevel: {
-    fontSize: 10,
-    fontWeight: '700',
     letterSpacing: 0.5,
   },
-  cardDesc: {
-    color: COLORS.textSecondary,
-    fontSize: 10.5,
-    marginTop: 3,
-    lineHeight: 14,
+  cardLevel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   statRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
+    marginTop: 3,
   },
   statNow: {
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
   },
   statArrow: {
     color: COLORS.textSecondary,
-    fontSize: 10,
+    fontSize: 9.5,
   },
   statNext: {
     color: COLORS.textPrimary,
-    fontSize: 11.5,
+    fontSize: 10.5,
     fontWeight: '800',
   },
   statMaxTag: {
@@ -634,11 +604,11 @@ const styles = StyleSheet.create({
   },
   buyButtonOwned: {
     borderColor: COLORS.green,
-    backgroundColor: 'rgba(92,255,157,0.14)',
+    backgroundColor: 'rgba(92,255,157,0.3)',
   },
   buyButtonDisabled: {
     borderColor: UNAFFORDABLE_COLOR,
-    backgroundColor: `${UNAFFORDABLE_COLOR}1f`,
+    backgroundColor: `${UNAFFORDABLE_COLOR}40`,
   },
   buyButtonText: {
     color: COLORS.textPrimary,
