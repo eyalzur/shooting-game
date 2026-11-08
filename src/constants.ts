@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.17.2',
+    date: '2026-11-08',
+    icon: '⏸️',
+    title: 'The scene freezes when a match ends',
+    bullets: [
+      'Targets and bullets used to keep moving behind the win/lose panel, which could let a gesture that was already in progress right as the clock hit zero sneak in a stray shot or move. Everything now freezes the instant the match ends, and the result panel is the only thing that can respond to a tap.',
+    ],
+  },
+  {
     version: '1.17.1',
     date: '2026-11-08',
     icon: '🛍️',
