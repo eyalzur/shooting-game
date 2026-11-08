@@ -75,7 +75,7 @@ export default function PurchaseBurst({ event }: Props) {
         Animated.spring(iconScale, { toValue: 1, friction: 4, tension: 190, useNativeDriver: true }),
         Animated.timing(iconOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
       ]),
-      Animated.delay(550),
+      Animated.delay(400),
       Animated.timing(iconOpacity, { toValue: 0, duration: 260, useNativeDriver: true }),
     ]).start();
 
@@ -131,7 +131,10 @@ export default function PurchaseBurst({ event }: Props) {
           );
         })}
         <Animated.View
-          style={{ opacity: iconOpacity, transform: [{ scale: iconScale }, { rotate: iconRotate }], alignItems: 'center' }}
+          style={[
+            styles.card,
+            { borderColor: content.color, opacity: iconOpacity, transform: [{ scale: iconScale }, { rotate: iconRotate }] },
+          ]}
         >
           <Text style={[styles.icon, { textShadowColor: content.color }]}>{content.icon}</Text>
           <Text style={styles.label}>PURCHASED!</Text>
@@ -176,6 +179,22 @@ const styles = StyleSheet.create({
     shadowOpacity: 1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
+  },
+  // A near-opaque card behind the text, not just the global scrim — so the
+  // celebration always reads as its own floating object with a clean edge,
+  // instead of bare glowing text that can blend into whatever's still
+  // faintly visible through the scrim as it fades.
+  card: {
+    alignItems: 'center',
+    paddingVertical: 22,
+    paddingHorizontal: 30,
+    borderRadius: 24,
+    borderWidth: 2,
+    backgroundColor: 'rgba(10,7,26,0.95)',
+    shadowColor: '#000',
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 8 },
   },
   icon: {
     fontSize: 64,
