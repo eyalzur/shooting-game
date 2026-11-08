@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.17.1',
+    date: '2026-11-08',
+    icon: '🛍️',
+    title: 'Purchase celebration reads cleaner as it fades',
+    bullets: [
+      'The "Purchased!" text now sits on its own solid card instead of floating bare over the dimming background, and fully fades out before the backdrop starts to clear — no more a moment where the text looked like it was part of the screen underneath.',
+    ],
+  },
+  {
     version: '1.17.0',
     date: '2026-11-08',
     icon: '📐',
