@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
 import { BOUNCE_FLASH_MS, COLORS, EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 import { shadeColor } from '../utils/color';
@@ -77,12 +77,51 @@ export default function Target({ target, lane, laneY }: Props) {
     prevBounceId.current = target.bounceId;
   }, [target.bounceId, bounce]);
 
-  // A real 3D tumble (rotateY + perspective), not a flat in-plane spin — the
-  // star turns to face you edge-on and back, like a coin flipping, rather
-  // than pinwheeling around a fixed axis. Driven straight from the target's
-  // own spin phase, which the main game loop advances every tick — no
-  // independent animation clock to fall out of sync or silently stop.
-  const spinY = `${target.spin * 360}deg`;
+  // CSS rotateX/rotateY spins the whole flat circle as a rigid plane, which
+  // inevitably flattens to a thin line edge-on — reads as a spinning disc,
+  // not a ball. Instead the outer circle never rotates at all; "spin" is
+  // faked the way 2D globe sprites always have, by sweeping the surface
+  // detail (craters + meridian mesh lines below) across a fixed, always-
+  // round silhouette, so it reads as a solid 3D ball at every frame. Driven
+  // straight from the target's own spin phase, which the main game loop
+  // advances every tick — no independent animation clock to fall out of
+  // sync or silently stop.
+  const spinAngle = target.spin * Math.PI * 2;
+  const SPHERE_R = 46;
+  // Craters: orbit across the face, foreshortening (narrowing) and fading
+  // as they near the limb and swing onto the far side — exactly how a
+  // marking on a rotating globe behaves — then reappear on the other edge.
+  const craters = [
+    { phase: 0, cy: 40, baseRx: 10, ry: 6 },
+    { phase: 2.3, cy: 64, baseRx: 7, ry: 5 },
+    { phase: 4.4, cy: 52, baseRx: 6, ry: 4 },
+  ].map(({ phase, cy, baseRx, ry }) => {
+    const angle = spinAngle + phase;
+    const cosA = Math.cos(angle);
+    const facing = Math.max(0, cosA);
+    return {
+      cx: 50 + Math.sin(angle) * SPHERE_R * 0.58,
+      cy,
+      rx: baseRx * facing,
+      ry,
+      opacity: 0.32 * facing,
+    };
+  });
+  // Meridian lines: the classic fake-3D-globe mesh — arcs anchored at the
+  // top and bottom pole that bulge out to one side or the other, the bulge
+  // growing and shrinking with the spin phase, same as lines of longitude
+  // sweeping across a turning globe. Built as SVG arc paths (not ellipses)
+  // so each one is naturally a single curve from pole to pole, always
+  // inside the sphere's own circle — nothing to clip.
+  const meridians = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2].map((phase) => {
+    const angle = spinAngle + phase;
+    const bulge = Math.sin(angle) * SPHERE_R;
+    const sweep = bulge >= 0 ? 1 : 0;
+    return {
+      d: `M 50 ${50 - SPHERE_R} A ${Math.abs(bulge)} ${SPHERE_R} 0 0 ${sweep} 50 ${50 + SPHERE_R}`,
+      opacity: 0.18 + 0.12 * Math.max(0, Math.cos(angle)),
+    };
+  });
 
   const bouncePop = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
   const bounceFlashOpacity = bounce;
@@ -253,12 +292,7 @@ export default function Target({ target, lane, laneY }: Props) {
               ]}
             />
           )}
-          <View
-            style={[
-              styles.spinWrap,
-              { width: lane.size, height: lane.size, transform: [{ perspective: 400 }, { rotateY: spinY }] },
-            ]}
-          >
+          <View style={[styles.spinWrap, { width: lane.size, height: lane.size }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs>
                 <RadialGradient id={planetGradId} cx="0.36" cy="0.32" r="0.75">
@@ -267,11 +301,18 @@ export default function Target({ target, lane, laneY }: Props) {
                   <Stop offset="1" stopColor={planetDark} />
                 </RadialGradient>
               </Defs>
-              <Circle cx={50} cy={50} r={46} fill={`url(#${planetGradId})`} stroke={planetDark} strokeWidth={2} />
-              {/* A couple of darker surface patches (continents/craters) so
-                  it reads as a textured little world, not a flat lit ball. */}
-              <Ellipse cx={36} cy={40} rx={10} ry={6} fill={planetDark} opacity={0.3} />
-              <Ellipse cx={62} cy={64} rx={7} ry={5} fill={planetDark} opacity={0.3} />
+              {/* The silhouette itself never rotates — always a perfect
+                  circle, so it can never flatten into a thin disc. */}
+              <Circle cx={50} cy={50} r={SPHERE_R} fill={`url(#${planetGradId})`} stroke={planetDark} strokeWidth={2} />
+              {/* Longitude mesh lines, sweeping across the fixed silhouette. */}
+              {meridians.map((m, i) => (
+                <Path key={i} d={m.d} fill="none" stroke={planetLight} strokeWidth={1} opacity={m.opacity} />
+              ))}
+              {/* Craters/continents orbiting across the face, foreshortening
+                  and fading as they swing around toward the far side. */}
+              {craters.map((c, i) => (
+                <Ellipse key={i} cx={c.cx} cy={c.cy} rx={c.rx} ry={c.ry} fill={planetDark} opacity={c.opacity} />
+              ))}
               {/* Soft specular highlight, like sunlight catching the surface. */}
               <Ellipse cx={34} cy={30} rx={10} ry={6} fill="#ffffff" opacity={0.3} />
             </Svg>

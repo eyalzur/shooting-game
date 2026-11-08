@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.18.1',
+    date: '2026-11-08',
+    icon: '🌍',
+    title: 'Planets always read as a solid ball, never a thin disc',
+    bullets: [
+      "Rotating the flat planet shape in 3D could briefly flatten it into a sliver at some spin angles — now the outer silhouette stays a perfect sphere, and the spin instead plays out as craters and surface lines sweeping across the ball, like watching a real globe turn.",
+    ],
+  },
+  {
     version: '1.18.0',
     date: '2026-11-08',
     icon: '🪐',
