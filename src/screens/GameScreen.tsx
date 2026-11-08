@@ -480,8 +480,9 @@ export default function GameScreen({
       const now = Date.now();
       const lanes = effectiveLanesRef.current;
 
-      // Match timer (solo or vs) — once it hits zero, scoring freezes but
-      // the scene keeps animating behind the result overlay.
+      // Match timer (solo or vs) — once it hits zero, the whole scene
+      // freezes (see the matchOverRef guard below), so the result panel
+      // sits over a still frame, not a moving one.
       let timeLeftMs = Infinity;
       if (hasTimer) {
         timeLeftMs = Math.max(0, matchMs! - (now - matchStartRef.current));
@@ -501,68 +502,73 @@ export default function GameScreen({
           setCountdownEvent({ id: countdownIdRef.current, value: sec });
         }
       }
-      targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
-
-      // Bullets: move up, drop once off-screen. Speed ramps with level too.
-      // A homing bullet steers its direction toward the nearest live target
-      // ahead of it each tick, before the position update below uses it —
-      // a gradual turn (HOMING_TURN_RATE), not an instant snap.
+      // Also used below by the bot's shot-lead prediction, which stays
+      // live-computed even when frozen (it just never fires a shot then).
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, bulletSpeedLevel);
-      bulletsRef.current = bulletsRef.current
-        .map((b) => {
-          let dirX = b.dirX;
-          let dirY = b.dirY;
-          if (b.homing && b.owner === 'player') {
-            let nearest: TargetState | null = null;
-            let nearestDist = Infinity;
-            for (const t of targetsRef.current) {
-              if (t.hitAt !== null) continue;
-              const laneY = lanes[t.laneIndex].y * playAreaHeight;
-              if (laneY >= b.y) continue;
-              const dist = Math.hypot(t.x - b.x, laneY - b.y);
-              if (dist < nearestDist) {
-                nearestDist = dist;
-                nearest = t;
+      // Once the match is over, the scene freezes exactly as it was —
+      // nothing keeps moving behind the result panel, so there's nothing
+      // left for a stray tap to land on.
+      if (!matchOverRef.current) {
+        targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
+
+        // Bullets: move up, drop once off-screen. Speed ramps with level too.
+        // A homing bullet steers its direction toward the nearest live target
+        // ahead of it each tick, before the position update below uses it —
+        // a gradual turn (HOMING_TURN_RATE), not an instant snap.
+        bulletsRef.current = bulletsRef.current
+          .map((b) => {
+            let dirX = b.dirX;
+            let dirY = b.dirY;
+            if (b.homing && b.owner === 'player') {
+              let nearest: TargetState | null = null;
+              let nearestDist = Infinity;
+              for (const t of targetsRef.current) {
+                if (t.hitAt !== null) continue;
+                const laneY = lanes[t.laneIndex].y * playAreaHeight;
+                if (laneY >= b.y) continue;
+                const dist = Math.hypot(t.x - b.x, laneY - b.y);
+                if (dist < nearestDist) {
+                  nearestDist = dist;
+                  nearest = t;
+                }
+              }
+              if (nearest) {
+                const laneY = lanes[nearest.laneIndex].y * playAreaHeight;
+                const toTargetLen = Math.hypot(nearest.x - b.x, laneY - b.y) || 1;
+                const desiredDirX = (nearest.x - b.x) / toTargetLen;
+                const desiredDirY = (laneY - b.y) / toTargetLen;
+                const turn = Math.min(1, HOMING_TURN_RATE * dt);
+                dirX += (desiredDirX - dirX) * turn;
+                dirY += (desiredDirY - dirY) * turn;
+                const dirLen = Math.hypot(dirX, dirY) || 1;
+                dirX /= dirLen;
+                dirY /= dirLen;
               }
             }
-            if (nearest) {
-              const laneY = lanes[nearest.laneIndex].y * playAreaHeight;
-              const toTargetLen = Math.hypot(nearest.x - b.x, laneY - b.y) || 1;
-              const desiredDirX = (nearest.x - b.x) / toTargetLen;
-              const desiredDirY = (laneY - b.y) / toTargetLen;
-              const turn = Math.min(1, HOMING_TURN_RATE * dt);
-              dirX += (desiredDirX - dirX) * turn;
-              dirY += (desiredDirY - dirY) * turn;
-              const dirLen = Math.hypot(dirX, dirY) || 1;
-              dirX /= dirLen;
-              dirY /= dirLen;
-            }
-          }
-          return { ...b, dirX, dirY, x: b.x + dirX * bulletSpeed * dt, y: b.y + dirY * bulletSpeed * dt };
-        })
-        .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
+            return { ...b, dirX, dirY, x: b.x + dirX * bulletSpeed * dt, y: b.y + dirY * bulletSpeed * dt };
+          })
+          .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
 
-      // Collisions: a live bullet (either owner's) entering a lane's hit
-      // band near a live target. Both player and bot shoot the same shared
-      // targets, so whoever's bullet gets there first scores it.
-      const remainingBullets: BulletState[] = [];
-      for (const b of bulletsRef.current) {
-        let hitSomething = false;
-        for (const t of targetsRef.current) {
-          if (t.hitAt !== null) continue;
-          const lane = lanes[t.laneIndex];
-          const laneY = lane.y * playAreaHeight;
-          if (
-            Math.abs(b.y - laneY) <= HIT_BAND &&
-            Math.abs(b.x - t.x) <= lane.size / 2
-          ) {
-            t.hitAt = now;
-            t.respawnDelay = randomRespawnDelay();
-            t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
-            t.explosionVariant = Math.floor(Math.random() * 3);
-            playHit(t.explosionVariant);
-            if (t.isGolden) playGolden();
-            if (!matchOverRef.current) {
+        // Collisions: a live bullet (either owner's) entering a lane's hit
+        // band near a live target. Both player and bot shoot the same shared
+        // targets, so whoever's bullet gets there first scores it.
+        const remainingBullets: BulletState[] = [];
+        for (const b of bulletsRef.current) {
+          let hitSomething = false;
+          for (const t of targetsRef.current) {
+            if (t.hitAt !== null) continue;
+            const lane = lanes[t.laneIndex];
+            const laneY = lane.y * playAreaHeight;
+            if (
+              Math.abs(b.y - laneY) <= HIT_BAND &&
+              Math.abs(b.x - t.x) <= lane.size / 2
+            ) {
+              t.hitAt = now;
+              t.respawnDelay = randomRespawnDelay();
+              t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
+              t.explosionVariant = Math.floor(Math.random() * 3);
+              playHit(t.explosionVariant);
+              if (t.isGolden) playGolden();
               const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
               if (b.owner === 'player') {
                 scoreRef.current += gain;
@@ -593,43 +599,46 @@ export default function GameScreen({
                   { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: bot.color, createdAt: now },
                 ];
               }
+              hitSomething = true;
+              // Piercing Rounds: a player bullet with hits left survives,
+              // continuing on to the next target behind it in the lane
+              // instead of being destroyed by this hit.
+              const pierceLeft = b.owner === 'player' ? (b.pierce ?? 0) : 0;
+              if (pierceLeft > 0) {
+                remainingBullets.push({ ...b, pierce: pierceLeft - 1 });
+              }
+              break;
             }
-            hitSomething = true;
-            // Piercing Rounds: a player bullet with hits left survives,
-            // continuing on to the next target behind it in the lane
-            // instead of being destroyed by this hit.
-            const pierceLeft = b.owner === 'player' ? (b.pierce ?? 0) : 0;
-            if (pierceLeft > 0) {
-              remainingBullets.push({ ...b, pierce: pierceLeft - 1 });
-            }
-            break;
           }
+          if (!hitSomething) remainingBullets.push(b);
         }
-        if (!hitSomething) remainingBullets.push(b);
+        bulletsRef.current = remainingBullets;
       }
-      bulletsRef.current = remainingBullets;
 
-      // Giant: while active, the cannon itself is bigger — widening its own
-      // catch radius, not pulling pickups in like Magnet does. playerSizeRef
-      // is the real gameplay size; the spring below is just the visual pop.
-      const giantActive = giantUntilRef.current > now;
-      const baseSize = PLAYER_SIZE + wideStanceBonus;
-      playerSizeRef.current = giantActive ? baseSize * giantSizeMult : baseSize;
-      if (giantActive !== prevGiantActiveRef.current) {
-        prevGiantActiveRef.current = giantActive;
-        Animated.spring(playerGrowScale, {
-          toValue: giantActive ? giantSizeMult : 1,
-          friction: 5,
-          tension: 140,
-          useNativeDriver: true,
-        }).start();
+      if (!matchOverRef.current) {
+        // Giant: while active, the cannon itself is bigger — widening its
+        // own catch radius, not pulling pickups in like Magnet does.
+        // playerSizeRef is the real gameplay size; the spring below is just
+        // the visual pop.
+        const giantActive = giantUntilRef.current > now;
+        const baseSize = PLAYER_SIZE + wideStanceBonus;
+        playerSizeRef.current = giantActive ? baseSize * giantSizeMult : baseSize;
+        if (giantActive !== prevGiantActiveRef.current) {
+          prevGiantActiveRef.current = giantActive;
+          Animated.spring(playerGrowScale, {
+            toValue: giantActive ? giantSizeMult : 1,
+            friction: 5,
+            tension: 140,
+            useNativeDriver: true,
+          }).start();
+        }
       }
 
       // Pickups: fall straight down from where they dropped, or drift
       // toward the cannon's x too while Magnet is active. Brush the
       // player's cannon against one to collect it; miss the catch and it
       // falls off the bottom and is gone.
-      if (ENHANCEMENTS_ENABLED) {
+      if (ENHANCEMENTS_ENABLED && !matchOverRef.current) {
         const magnetActive = magnetUntilRef.current > now;
         const playerSize = playerSizeRef.current;
         const nextPickups: PickupState[] = [];
@@ -969,10 +978,15 @@ export default function GameScreen({
   }, []);
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
+      // Once the match is over the result panel owns input exclusively —
+      // refusing to even become the responder here means a gesture that
+      // was already in progress when the clock hit zero can't sneak a
+      // fire/move through on release after the panel has mounted on top.
+      onStartShouldSetPanResponder: () => !matchOverRef.current,
+      onMoveShouldSetPanResponder: () => !matchOverRef.current,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: (evt) => {
+        if (matchOverRef.current) return;
         touchStartRef.current = {
           x: evt.nativeEvent.pageX,
           y: evt.nativeEvent.pageY,
@@ -987,6 +1001,7 @@ export default function GameScreen({
         }, TAP_MAX_DURATION_MS);
       },
       onPanResponderMove: (evt) => {
+        if (matchOverRef.current) return;
         lastTouchXRef.current = evt.nativeEvent.pageX;
         const start = touchStartRef.current;
         if (!start) return;
@@ -1003,7 +1018,7 @@ export default function GameScreen({
         if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
         const start = touchStartRef.current;
         touchStartRef.current = null;
-        if (!start) return;
+        if (!start || matchOverRef.current) return;
         if (!isHoldRef.current) fire();
         isHoldRef.current = false;
       },
