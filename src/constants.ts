@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.18.0',
+    date: '2026-11-08',
+    icon: '🪐',
+    title: 'Targets are spinning planets again, not pointed stars',
+    bullets: [
+      'The 5-pointed-star shape from last update wasn\'t what was meant — targets are back to round, gradient-shaded little worlds (moon/Mars/Saturn-style), with surface patches and a sunlit highlight for real depth, still tumbling in true 3D.',
+    ],
+  },
+  {
     version: '1.17.2',
     date: '2026-11-08',
     icon: '⏸️',

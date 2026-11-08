@@ -1,28 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import Svg, { Defs, Polygon, RadialGradient, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
 import { BOUNCE_FLASH_MS, COLORS, EXPLOSION_MS } from '../constants';
 import { LaneConfig, TargetState } from '../types';
 import { shadeColor } from '../utils/color';
 import { playBounce } from '../utils/sound';
-
-// A 5-pointed star outline, as an SVG polygon-points string — the classic
-// "connect alternating outer/inner radius points" construction, with the
-// first point straight up so the star always has a point at the top.
-function starPoints(cx: number, cy: number, outerR: number, innerR: number, spikes = 5): string {
-  const step = Math.PI / spikes;
-  let angle = -Math.PI / 2;
-  const pts: string[] = [];
-  for (let i = 0; i < spikes * 2; i++) {
-    const r = i % 2 === 0 ? outerR : innerR;
-    pts.push(`${cx + Math.cos(angle) * r},${cy + Math.sin(angle) * r}`);
-    angle += step;
-  }
-  return pts.join(' ');
-}
-
-const STAR_OUTER_POINTS = starPoints(50, 50, 42, 17);
-const STAR_SHADOW_POINTS = starPoints(53, 54, 42, 17);
 
 interface Props {
   target: TargetState;
@@ -48,12 +30,13 @@ export default function Target({ target, lane, laneY }: Props) {
   // already advances every tick, not a standalone Animated loop.
   const baseColor = target.isGolden ? COLORS.gold : lane.color;
   const goldenPulse = target.isGolden ? 0.4 + 0.4 * Math.abs(Math.sin(target.spin * Math.PI * 4)) : 0;
-  // A gradient-shaded, gently extruded 5-pointed star instead of a flat
-  // color fill — shaded entirely from the lane/gold color via shadeColor,
-  // no second color defined anywhere.
-  const starLight = shadeColor(baseColor, 45);
-  const starDark = shadeColor(baseColor, -35);
-  const starGradId = `star-${target.id}`;
+  // A gradient-shaded little planet — a lit sphere with a couple of darker
+  // surface patches and a soft highlight, like a spinning moon or Mars —
+  // shaded entirely from the lane/gold color via shadeColor, no second
+  // color defined anywhere.
+  const planetLight = shadeColor(baseColor, 45);
+  const planetDark = shadeColor(baseColor, -35);
+  const planetGradId = `planet-${target.id}`;
 
   // One-shot explosion, triggered on the instant a hit lands. It's a finite
   // animation (not a loop), so it can't drift or stall the way an
@@ -273,22 +256,24 @@ export default function Target({ target, lane, laneY }: Props) {
           <View
             style={[
               styles.spinWrap,
-              { width: lane.size * 1.6, height: lane.size * 1.6, transform: [{ perspective: 400 }, { rotateY: spinY }] },
+              { width: lane.size, height: lane.size, transform: [{ perspective: 400 }, { rotateY: spinY }] },
             ]}
           >
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs>
-                <RadialGradient id={starGradId} cx="0.38" cy="0.32" r="0.75">
-                  <Stop offset="0" stopColor={starLight} />
+                <RadialGradient id={planetGradId} cx="0.36" cy="0.32" r="0.75">
+                  <Stop offset="0" stopColor={planetLight} />
                   <Stop offset="0.6" stopColor={baseColor} />
-                  <Stop offset="1" stopColor={starDark} />
+                  <Stop offset="1" stopColor={planetDark} />
                 </RadialGradient>
               </Defs>
-              {/* A duplicate star, offset down-right and darkened, read as the
-                  lit one's own cast shadow/thickness — a cheap but effective
-                  way to fake extrusion without a real 3D renderer. */}
-              <Polygon points={STAR_SHADOW_POINTS} fill={starDark} opacity={0.55} />
-              <Polygon points={STAR_OUTER_POINTS} fill={`url(#${starGradId})`} stroke={starDark} strokeWidth={2} strokeLinejoin="round" />
+              <Circle cx={50} cy={50} r={46} fill={`url(#${planetGradId})`} stroke={planetDark} strokeWidth={2} />
+              {/* A couple of darker surface patches (continents/craters) so
+                  it reads as a textured little world, not a flat lit ball. */}
+              <Ellipse cx={36} cy={40} rx={10} ry={6} fill={planetDark} opacity={0.3} />
+              <Ellipse cx={62} cy={64} rx={7} ry={5} fill={planetDark} opacity={0.3} />
+              {/* Soft specular highlight, like sunlight catching the surface. */}
+              <Ellipse cx={34} cy={30} rx={10} ry={6} fill="#ffffff" opacity={0.3} />
             </Svg>
           </View>
         </>
@@ -298,15 +283,15 @@ export default function Target({ target, lane, laneY }: Props) {
         style={[
           styles.core,
           {
-            // Idle, the star's own gradient already reads as a lit, faceted
-            // shape — a full-size solid dot here would just eclipse it. Only
-            // the explosion wants the big lane.size crumbling-core look.
-            width: isHit ? lane.size : lane.size * 0.3,
-            height: isHit ? lane.size : lane.size * 0.3,
+            // Idle, the planet sphere above is the whole visible body — this
+            // dot only matters for the explosion's crumbling-core look, so
+            // it's invisible until a hit starts it.
+            width: lane.size,
+            height: lane.size,
             borderRadius: lane.size / 2,
             backgroundColor: isHit ? explosionColor : baseColor,
             shadowColor: isHit ? explosionColor : baseColor,
-            opacity: isHit ? (variant === 1 ? shatterCoreOpacity : variant === 2 ? implodeCoreOpacity : burstCoreOpacity) : 1,
+            opacity: isHit ? (variant === 1 ? shatterCoreOpacity : variant === 2 ? implodeCoreOpacity : burstCoreOpacity) : 0,
             transform: [
               {
                 scale: isHit
