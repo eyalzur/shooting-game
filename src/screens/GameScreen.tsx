@@ -93,6 +93,11 @@ import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playS
 
 const TOP_BAR_HEIGHT = 56;
 
+// How long the result panel's PLAY AGAIN/HOME buttons stay unpressable after
+// the panel appears, so a tap already in flight when the match ends can't
+// land on them by accident.
+const RESULT_BUTTONS_DELAY_MS = 2500;
+
 // Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
 // without becoming impossible. The min/max speed range widens with level too,
@@ -372,6 +377,10 @@ export default function GameScreen({
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
   const [matchOver, setMatchOver] = useState(false);
+  // Result buttons stay unpressable for a beat after the panel appears, so a
+  // tap aimed at a target/the fire area a moment before match-end can't land
+  // on PLAY AGAIN/HOME by accident.
+  const [resultButtonsReady, setResultButtonsReady] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
   const [levelUpEvent, setLevelUpEvent] = useState<{ level: number; id: number } | null>(null);
@@ -402,7 +411,12 @@ export default function GameScreen({
     };
   }, []);
   useEffect(() => {
-    if (!matchOver) return;
+    if (!matchOver) {
+      setResultButtonsReady(false);
+      return;
+    }
+    setResultButtonsReady(false);
+    const readyTimer = setTimeout(() => setResultButtonsReady(true), RESULT_BUTTONS_DELAY_MS);
     if (!isVsBot) {
       playTimeUp();
     } else if (outcome === 'win') {
@@ -440,6 +454,7 @@ export default function GameScreen({
     } else {
       Animated.timing(resultEnter, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
+    return () => clearTimeout(readyTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matchOver]);
 
@@ -1174,19 +1189,21 @@ export default function GameScreen({
               <View style={styles.resultButtons}>
                 <PressableScale
                   onPress={() => {
+                    if (!resultButtonsReady) return;
                     playUiTap();
                     onPlayAgain?.();
                   }}
-                  style={styles.resultButtonPrimary}
+                  style={[styles.resultButtonPrimary, !resultButtonsReady && styles.resultButtonWaiting]}
                 >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
                 </PressableScale>
                 <PressableScale
                   onPress={() => {
+                    if (!resultButtonsReady) return;
                     playUiTap();
                     onExit(scoreRef.current);
                   }}
-                  style={styles.resultButtonSecondary}
+                  style={[styles.resultButtonSecondary, !resultButtonsReady && styles.resultButtonWaiting]}
                 >
                   <Text style={styles.resultButtonText}>HOME</Text>
                 </PressableScale>
@@ -1276,19 +1293,21 @@ export default function GameScreen({
               <View style={styles.resultButtons}>
                 <PressableScale
                   onPress={() => {
+                    if (!resultButtonsReady) return;
                     playUiTap();
                     onPlayAgain?.();
                   }}
-                  style={styles.resultButtonPrimary}
+                  style={[styles.resultButtonPrimary, !resultButtonsReady && styles.resultButtonWaiting]}
                 >
                   <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
                 </PressableScale>
                 <PressableScale
                   onPress={() => {
+                    if (!resultButtonsReady) return;
                     playUiTap();
                     onExit(scoreRef.current);
                   }}
-                  style={styles.resultButtonSecondary}
+                  style={[styles.resultButtonSecondary, !resultButtonsReady && styles.resultButtonWaiting]}
                 >
                   <Text style={styles.resultButtonText}>HOME</Text>
                 </PressableScale>
@@ -1530,6 +1549,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
     letterSpacing: 1.5,
+  },
+  resultButtonWaiting: {
+    opacity: 0.35,
   },
 });
 

@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.19.0',
+    date: '2026-11-12',
+    icon: '⏳',
+    title: 'Result buttons wait a beat before they\'re clickable',
+    bullets: [
+      'PLAY AGAIN and HOME now stay dimmed and unpressable for a couple seconds after the win/lose panel appears, so a tap already in flight when the match ends can\'t accidentally trigger one.',
+    ],
+  },
+  {
     version: '1.18.1',
     date: '2026-11-08',
     icon: '🌍',
