@@ -43,6 +43,7 @@ import {
   GIANT_SIZE_MULTS,
   GOLDEN_SCORE_MULTIPLIER,
   GOLDEN_STAR_CHANCE,
+  GRAVITY_WELL_PULL_SPEED,
   HIT_BAND,
   HIT_SHAKE_MS,
   HIT_SHAKE_PX,
@@ -60,6 +61,8 @@ import {
   PICKUP_DROP_CHANCE,
   PICKUP_FALL_SPEED,
   PICKUP_GIANT_CHANCE,
+  PICKUP_GRAVITY_CHANCE,
+  PICKUP_GRAVITY_DURATION_MS,
   PICKUP_HOMING_CHANCE,
   PICKUP_HOMING_DURATION_MS,
   PICKUP_MAGNET_CHANCE,
@@ -167,6 +170,7 @@ const PICKUP_KIND_WEIGHTS: [number, PickupKind][] = [
   [PICKUP_MAGNET_CHANCE, 'magnet'],
   [PICKUP_GIANT_CHANCE, 'giant'],
   [PICKUP_HOMING_CHANCE, 'homing'],
+  [PICKUP_GRAVITY_CHANCE, 'gravityWell'],
 ];
 function rollPickupKind(): PickupKind {
   const roll = Math.random();
@@ -186,7 +190,14 @@ function getAccuracyTier(accuracy: number) {
 
 // Shared bounce/respawn/spin physics, used for both the player's targets
 // and the bot's — same rules, just different lane sets.
-function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: number, dt: number, now: number): TargetState[] {
+function advanceTargets(
+  targets: TargetState[],
+  lanes: LaneConfig[],
+  width: number,
+  dt: number,
+  now: number,
+  wellX: number | null = null
+): TargetState[] {
   return targets.map((t) => {
     if (t.hitAt !== null) {
       if (now - t.hitAt > t.respawnDelay) {
@@ -207,6 +218,14 @@ function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: numb
     const min = lane.size / 2;
     const max = width - lane.size / 2;
     let nextX = t.x + t.dir * t.speed * dt;
+    // Gravity Well: on top of its normal drift, every live target also
+    // pulls toward the well's x column — lanes converge on the same x
+    // while it's active, re-diverging once it expires.
+    if (wellX !== null) {
+      const pullDx = wellX - nextX;
+      const pullStep = Math.min(Math.abs(pullDx), GRAVITY_WELL_PULL_SPEED * dt);
+      nextX += Math.sign(pullDx) * pullStep;
+    }
     let nextDir = t.dir;
     let nextSpeed = t.speed;
     let nextBounceId = t.bounceId;
@@ -319,6 +338,12 @@ export default function GameScreen({
   const homingUntilRef = useRef(ownsHomingShot ? Date.now() + OWNED_FIRE_PATTERN_WINDOW_MS : 0);
   const magnetUntilRef = useRef(0);
   const giantUntilRef = useRef(0);
+  // Gravity Well: "active until" like the others above, plus the x column
+  // it's pulling toward — set once at catch time, not re-centered on the
+  // cannon, so it reads as a well placed in the world rather than a magnet
+  // that follows you around.
+  const gravityUntilRef = useRef(0);
+  const gravityWellXRef = useRef<number | null>(null);
   // Second Wind: how many more missed-pickup refunds are left this match —
   // set once at mount from the owned level, only ever counts down.
   const secondWindUsesLeftRef = useRef(secondWindLevel);
@@ -378,6 +403,7 @@ export default function GameScreen({
   const [magnetMsLeft, setMagnetMsLeft] = useState(0);
   const [giantMsLeft, setGiantMsLeft] = useState(0);
   const [homingMsLeft, setHomingMsLeft] = useState(0);
+  const [gravityMsLeft, setGravityMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
@@ -555,7 +581,15 @@ export default function GameScreen({
       // nothing keeps moving behind the result panel, so there's nothing
       // left for a stray tap to land on.
       if (!matchOverRef.current) {
-        targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
+        const wellActive = gravityUntilRef.current > now;
+        targetsRef.current = advanceTargets(
+          targetsRef.current,
+          lanes,
+          width,
+          dt,
+          now,
+          wellActive ? gravityWellXRef.current : null
+        );
 
         // Bullets: move up, drop once off-screen. Speed ramps with level too.
         // A homing bullet steers its direction toward the nearest live target
@@ -740,6 +774,11 @@ export default function GameScreen({
               homingUntilRef.current = Math.max(homingUntilRef.current, now) + PICKUP_HOMING_DURATION_MS;
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'homing' });
+            } else if (p.kind === 'gravityWell') {
+              gravityUntilRef.current = Math.max(gravityUntilRef.current, now) + PICKUP_GRAVITY_DURATION_MS;
+              gravityWellXRef.current = playerXRef.current;
+              powerUpIdRef.current += 1;
+              setPowerUpEvent({ id: powerUpIdRef.current, kind: 'gravityWell' });
             } else {
               // Bomb: every live target goes down at once, same scoring and
               // explosion as a direct hit — just no chained pickup drops,
@@ -900,6 +939,7 @@ export default function GameScreen({
       setMagnetMsLeft(Math.max(0, magnetUntilRef.current - now));
       setGiantMsLeft(Math.max(0, giantUntilRef.current - now));
       setHomingMsLeft(Math.max(0, homingUntilRef.current - now));
+      setGravityMsLeft(Math.max(0, gravityUntilRef.current - now));
       setDisplayScore(Math.round(displayScoreRef.current));
       setCharges(chargesRef.current);
 
@@ -1140,7 +1180,12 @@ export default function GameScreen({
         >
           <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
           {ENHANCEMENTS_ENABLED &&
-            (spreadMsLeft > 0 || rapidFireMsLeft > 0 || magnetMsLeft > 0 || giantMsLeft > 0 || homingMsLeft > 0) && (
+            (spreadMsLeft > 0 ||
+              rapidFireMsLeft > 0 ||
+              magnetMsLeft > 0 ||
+              giantMsLeft > 0 ||
+              homingMsLeft > 0 ||
+              gravityMsLeft > 0) && (
             <View style={styles.powerStack} pointerEvents="none">
               {spreadMsLeft > 0 ? (
                 <View style={[styles.powerChip, { borderColor: COLORS.orange }]}>
@@ -1180,6 +1225,14 @@ export default function GameScreen({
                   <Text style={styles.powerChipIcon}>🎯</Text>
                   <Text style={[styles.powerChipTime, { color: COLORS.purple, textShadowColor: COLORS.purple }]}>
                     {Math.ceil(homingMsLeft / 1000)}s
+                  </Text>
+                </View>
+              )}
+              {gravityMsLeft > 0 && (
+                <View style={[styles.powerChip, { borderColor: COLORS.indigo }]}>
+                  <Text style={styles.powerChipIcon}>🌀</Text>
+                  <Text style={[styles.powerChipTime, { color: COLORS.indigo, textShadowColor: COLORS.indigo }]}>
+                    {Math.ceil(gravityMsLeft / 1000)}s
                   </Text>
                 </View>
               )}

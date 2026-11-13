@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.27.0',
+    date: '2026-11-14',
+    icon: '🌀',
+    title: 'New Gravity Well pickup',
+    bullets: [
+      'Catch one and every target on screen drifts toward that column for a few seconds — line them up across all three lanes for a big multi-hit, especially with Piercing Rounds.',
+    ],
+  },
+  {
     version: '1.26.0',
     date: '2026-11-14',
     icon: '↩️',
@@ -426,6 +435,7 @@ export const COLORS = {
   green: '#5cff9d',
   orange: '#ff9d5c',
   starlight: '#d9d4ff',
+  indigo: '#6c5ce7',
   // Team colors: the player is always blue, the robot opponent always red —
   // used for cannons, bullets, and hit/explosion effects so it's instantly
   // clear whose shot did what.
@@ -577,6 +587,7 @@ export const PICKUP_BOMB_CHANCE = 0.12;
 export const PICKUP_MAGNET_CHANCE = 0.13;
 export const PICKUP_GIANT_CHANCE = 0.1;
 export const PICKUP_HOMING_CHANCE = 0.08;
+export const PICKUP_GRAVITY_CHANCE = 0.08;
 export const PICKUP_FALL_SPEED = 170; // px/sec
 export const PICKUP_SIZE = 26;
 export const PICKUP_SCORE_MIN = 10;
@@ -606,6 +617,14 @@ export const GIANT_DURATION_BONUS_MS = [2000, 4000, 6000];
 // how fast it can turn, in (unit-vector fraction)/sec.
 export const PICKUP_HOMING_DURATION_MS = 6000;
 export const HOMING_TURN_RATE = 5;
+
+// Gravity Well: while active, every target (any lane) drifts toward the x
+// column where the pickup was caught, on top of its normal bounce — lining
+// targets up across lanes so one shot up that column (especially with
+// Piercing Rounds) can take out several at once. GRAVITY_WELL_PULL_SPEED is
+// how fast that pull closes the gap, in px/sec.
+export const PICKUP_GRAVITY_DURATION_MS = 6000;
+export const GRAVITY_WELL_PULL_SPEED = 70;
 
 // Piercing Rounds: a bullet survives its first N hits instead of dying on
 // the first one, punching through to the target behind it in the same lane.
