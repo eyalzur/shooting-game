@@ -1,6 +1,6 @@
 import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopCategory, ShopItemDef } from './types';
 
-export const GAME_NAME = 'Nova Strike';
+export const GAME_NAME = 'Orbit Breaker';
 
 export const SPLASH_MIN_DURATION_MS = 1500;
 
@@ -8,6 +8,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // never drift out of sync — bump the game by adding a new entry here, not
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.20.0',
+    date: '2026-11-13',
+    icon: '🛰️',
+    title: 'Nova Strike is now Orbit Breaker',
+    bullets: [
+      'New name, new look on the way — the core-defense redesign lands in the next update.',
+    ],
+  },
   {
     version: '1.19.0',
     date: '2026-11-12',

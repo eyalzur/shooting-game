@@ -1,7 +1,7 @@
 {
-  "name": "Nova Strike",
-  "short_name": "Nova Strike",
-  "description": "Aim, move and shoot moving targets across near and far lanes.",
+  "name": "Orbit Breaker",
+  "short_name": "Orbit Breaker",
+  "description": "Defend your core from incoming planets — shoot them down before they break through.",
   "start_url": "/shooting-game/",
   "scope": "/shooting-game/",
   "display": "standalone",
