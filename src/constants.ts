@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.26.0',
+    date: '2026-11-14',
+    icon: '↩️',
+    title: 'Auto-drift cannon removed',
+    bullets: [
+      "Didn't land well — pulled back out. Cannon control is back to manual: hold-to-slide, drag to track, tap in place to fire.",
+    ],
+  },
+  {
     version: '1.24.0',
     date: '2026-11-13',
     icon: '↩️',
