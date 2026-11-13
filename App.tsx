@@ -4,7 +4,6 @@ import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
-import BotSelectScreen from './src/screens/BotSelectScreen';
 import GameScreen from './src/screens/GameScreen';
 import PlayerScreen from './src/screens/PlayerScreen';
 import ShopScreen from './src/screens/ShopScreen';
@@ -22,17 +21,18 @@ import {
   saveSoundEnabledPref,
 } from './src/utils/storage';
 import { setSoundEnabled } from './src/utils/sound';
-import { BotConfig, GameMode, UpgradeId } from './src/types';
+import { UpgradeId } from './src/types';
 
-type Phase = 'splash' | 'home' | 'botSelect' | 'playing' | 'shop' | 'currencyShop' | 'player' | 'changelog';
+// Vs-bot mode (BotSelectScreen) is on hold — its "same shared targets,
+// separate score tally" design doesn't map onto the core-defense redesign.
+// It'll come back as rival cores, each with its own shield, as a separate
+// follow-up task.
+type Phase = 'splash' | 'home' | 'playing' | 'shop' | 'currencyShop' | 'player' | 'changelog';
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>('splash');
   const [bestScore, setBestScore] = useState(0);
   const [lastScore, setLastScore] = useState<number | null>(null);
-  const [mode, setMode] = useState<GameMode>('solo');
-  const [bot, setBot] = useState<BotConfig | null>(null);
-  const [matchMs, setMatchMs] = useState<number | null>(null);
   const [runId, setRunId] = useState(0);
   const [soundOn, setSoundOn] = useState(true);
   const [currency, setCurrency] = useState(0);
@@ -104,22 +104,7 @@ export default function App() {
     setPhase('home');
   };
 
-  const startSolo = (chosenMatchMs: number | null) => {
-    setMode('solo');
-    setBot(null);
-    setMatchMs(chosenMatchMs);
-    setRunId((r) => r + 1);
-    setPhase('playing');
-  };
-
-  const goToBotSelect = (chosenMatchMs: number | null) => {
-    setMatchMs(chosenMatchMs);
-    setPhase('botSelect');
-  };
-
-  const selectBot = (chosen: BotConfig) => {
-    setMode('vs');
-    setBot(chosen);
+  const startSolo = () => {
     setRunId((r) => r + 1);
     setPhase('playing');
   };
@@ -135,7 +120,6 @@ export default function App() {
             bestScore={bestScore}
             lastScore={lastScore}
             onStartSolo={startSolo}
-            onStartVs={goToBotSelect}
             soundOn={soundOn}
             onToggleSound={toggleSound}
             currency={currency}
@@ -143,9 +127,6 @@ export default function App() {
             onOpenPlayer={() => setPhase('player')}
             onOpenChangelog={() => setPhase('changelog')}
           />
-        )}
-        {phase === 'botSelect' && (
-          <BotSelectScreen onSelect={selectBot} onBack={() => setPhase('home')} />
         )}
         {phase === 'shop' && (
           <ShopScreen
@@ -171,9 +152,6 @@ export default function App() {
         {phase === 'playing' && (
           <GameScreen
             key={runId}
-            mode={mode}
-            bot={bot ?? undefined}
-            matchMs={matchMs}
             onExit={handleExit}
             onPlayAgain={playAgain}
             soundOn={soundOn}

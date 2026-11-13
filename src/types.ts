@@ -1,42 +1,63 @@
-export interface LaneConfig {
-  /** Vertical position of the lane as a fraction of the play area height (0 = top/far, 1 = bottom/near). */
-  y: number;
-  /** Target diameter in px. */
+export interface PlanetTierConfig {
+  /** Planet diameter in px. */
   size: number;
-  /** Horizontal speed range in px/sec; a target picks a new speed in this range each bounce. */
+  /** Speed range in px/sec toward the core; a planet picks one speed at spawn and keeps it. */
   minSpeed: number;
   maxSpeed: number;
-  /** Points awarded for hitting a target in this lane. */
+  /** Points awarded for destroying a planet of this tier. */
   points: number;
   color: string;
 }
 
 export interface TargetState {
   id: number;
-  laneIndex: number;
   x: number;
-  dir: 1 | -1;
-  /** Current speed in px/sec, re-rolled within the lane's range on each wall bounce. */
+  y: number;
+  /** Unit heading, corrected toward the core a little every tick (see
+   * PLANET_TURN_RATE) rather than snapping straight at it — a spawn-time
+   * random offset from the true bearing plus that gradual correction is
+   * what reads as a curving approach instead of a straight dive. */
+  dirX: number;
+  dirY: number;
+  /** Speed in px/sec, fixed for this planet's lifetime (rolled at spawn). */
   speed: number;
+  size: number;
+  color: string;
+  points: number;
   /** Rotation phase in [0, 1), advanced every tick by the game loop (not a standalone animation). */
   spin: number;
-  /** Set when hit, used to play a brief explosion + respawn-wait animation. */
+  /** Set when hit, used to play a brief explosion before the planet is removed. */
   hitAt: number | null;
-  /** Randomized respawn wait in ms, rolled fresh at the moment of the hit. */
-  respawnDelay: number;
+  /** Randomized wait in ms between the hit and the planet actually being
+   * removed — just long enough for the explosion animation to play. */
+  despawnDelay: number;
   /** Color of whoever's bullet hit it, so the explosion reads as "who scored this". */
   hitColor: string | null;
-  /** Bumped every time the target bounces off a side wall, so a component can watch it and flash. */
-  bounceId: number;
   /** Which explosion animation plays on this hit — rolled fresh each time, for variety. */
   explosionVariant: number;
-  /** A rare "golden" variant worth double points — rolled fresh on spawn/respawn. */
+  /** A rare "golden" variant worth double points — rolled fresh on spawn. */
   isGolden: boolean;
+}
+
+/** A small chunk a planet breaks into when shot — scatters on its own
+ * momentum (no steering, unlike a planet), and can itself reach the core or
+ * be shot down for a smaller bonus. One-shot: it doesn't fragment further. */
+export interface DebrisState {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  color: string;
+  createdAt: number;
+  /** Set when shot, for a brief pop animation before removal; null while live. */
+  poppedAt: number | null;
 }
 
 export type PickupKind = 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant' | 'homing';
 
-/** A bonus item that falls from a broken target; collect it by brushing the cannon against it. */
+/** A bonus item that falls from a broken planet; collect it by brushing the cannon against it. */
 export interface PickupState {
   id: number;
   x: number;
@@ -55,15 +76,15 @@ export interface BulletState {
    * use a tilted unit vector instead. */
   dirX: number;
   dirY: number;
-  /** Whose shot this is — decides who gets credited on a hit. */
-  owner: 'player' | 'bot';
-  /** Tint for a bot's shot, so it reads as visibly different from the player's. */
+  /** Tint for the bullet's glow — always the player's blue right now, kept
+   * as a field (rather than a hardcoded constant in Bullet.tsx) since a
+   * rival-mode bullet will need its own color again later. */
   color?: string;
   /** How many more targets this bullet can punch through after its next
    * hit (Piercing Rounds) — undefined/0 means it's destroyed on hit, same
    * as before the upgrade existed. */
   pierce?: number;
-  /** Steers toward the nearest live target each tick instead of flying
+  /** Steers toward the nearest live planet each tick instead of flying
    * straight (Homing Shot), set at spawn from whether the window was
    * active then — a bullet's homing never turns on mid-flight. */
   homing?: boolean;
@@ -77,8 +98,6 @@ export interface ScorePopupState {
   color: string;
   createdAt: number;
 }
-
-export type GameMode = 'solo' | 'vs';
 
 /** A permanent shop upgrade, identified by id — the owned set is what's persisted. */
 export type UpgradeId =
@@ -144,6 +163,12 @@ export interface ChangelogEntry {
   title: string;
   bullets: string[];
 }
+
+/** Unused by any screen right now — vs-bot mode is being redesigned
+ * (rival cores, each with its own shield) as a separate follow-up task.
+ * Kept so BotSelectScreen.tsx still compiles standalone rather than being
+ * deleted outright. */
+export type GameMode = 'solo' | 'vs';
 
 export interface BotConfig {
   name: string;
