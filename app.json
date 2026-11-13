@@ -22,8 +22,8 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
       "output": "single",
-      "name": "Nova Strike",
-      "shortName": "Nova Strike",
+      "name": "Orbit Breaker",
+      "shortName": "Orbit Breaker",
       "themeColor": "#101522",
       "backgroundColor": "#0d1117"
     },
