@@ -57,6 +57,19 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('sw.js').catch(() => {});
         });
+        // sw.js calls skipWaiting()+clients.claim() on every new deploy, so a
+        // new worker takes control of this page as soon as it activates —
+        // but the JS already running in memory is still the old bundle until
+        // something reloads. Without this, an already-open tab (or a PWA
+        // icon resumed from the background) stays stuck on the old version
+        // until the user force-quits and reopens it. One reload per new
+        // controller picks up the new bundle automatically instead.
+        let refreshingForNewWorker = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (refreshingForNewWorker) return;
+          refreshingForNewWorker = true;
+          window.location.reload();
+        });
       }
     </script>
   </body>
