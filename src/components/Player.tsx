@@ -10,6 +10,9 @@ interface Props {
   /** Grows/shrinks the whole cannon around its own center — driven by the
    * Giant pickup. Plain number or an Animated.Value for a springy pop. */
   scale?: number | Animated.Value;
+  /** Vertical recoil kick on fire — a small downward nudge that springs back,
+   * independent of scale so Giant and recoil never fight over one transform. */
+  kick?: Animated.Value;
 }
 
 const AnimatedSvg = Animated.createAnimatedComponent(Svg);
@@ -23,8 +26,10 @@ const AnimatedSvg = Animated.createAnimatedComponent(Svg);
 // one board. x is positioned via transform (not left) so the live player's
 // slide animation can drive it as an Animated.Value while the bot keeps
 // using a plain number.
-export default function Player({ x, y, color = COLORS.blue, scale = 1 }: Props) {
+export default function Player({ x, y, color = COLORS.blue, scale = 1, kick }: Props) {
   const translateX = typeof x === 'number' ? x - PLAYER_SIZE / 2 : Animated.subtract(x, PLAYER_SIZE / 2);
+  const transform: any[] = [{ translateX }, { scale }];
+  if (kick) transform.push({ translateY: kick });
   const hullLight = shadeColor(color, 35);
   const hullDark = shadeColor(color, -30);
   const gradId = `hull-${color.replace('#', '')}`;
@@ -36,7 +41,7 @@ export default function Player({ x, y, color = COLORS.blue, scale = 1 }: Props) 
       width={PLAYER_SIZE}
       height={PLAYER_SIZE}
       viewBox="0 0 100 100"
-      style={[styles.wrap, { top: y - PLAYER_SIZE / 2, transform: [{ translateX }, { scale }] }]}
+      style={[styles.wrap, { top: y - PLAYER_SIZE / 2, transform }]}
     >
       <Defs>
         <LinearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">

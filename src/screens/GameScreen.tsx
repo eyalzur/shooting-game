@@ -46,6 +46,11 @@ import {
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
   FIRE_RECHARGE_STEP,
+  HIT_SHAKE_MS,
+  HIT_SHAKE_PX,
+  MUZZLE_FLASH_MS,
+  RECOIL_KICK_MS,
+  RECOIL_KICK_PX,
   GIANT_BASE_DURATION_MS,
   GIANT_BASE_SIZE_MULT,
   GIANT_DURATION_BONUS_MS,
@@ -415,6 +420,34 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     ]).start();
   };
 
+  // Fire feel: a quick recoil kick + muzzle flash on every shot, so firing
+  // reads as a punch instead of just a bullet silently appearing.
+  const recoilKick = useRef(new Animated.Value(0)).current;
+  const triggerRecoil = () => {
+    recoilKick.setValue(0);
+    Animated.sequence([
+      Animated.timing(recoilKick, { toValue: RECOIL_KICK_PX, duration: RECOIL_KICK_MS * 0.4, useNativeDriver: true }),
+      Animated.spring(recoilKick, { toValue: 0, friction: 4, tension: 160, useNativeDriver: true }),
+    ]).start();
+  };
+  const muzzleFlash = useRef(new Animated.Value(0)).current;
+  const triggerMuzzleFlash = () => {
+    muzzleFlash.setValue(1);
+    Animated.timing(muzzleFlash, { toValue: 0, duration: MUZZLE_FLASH_MS, useNativeDriver: true }).start();
+  };
+  // A solid planet hit nudges the whole play area sideways and snaps back —
+  // tiny, but it's what makes a kill read as an impact rather than a target
+  // just silently disappearing.
+  const hitShake = useRef(new Animated.Value(0)).current;
+  const triggerHitShake = () => {
+    hitShake.setValue(0);
+    Animated.sequence([
+      Animated.timing(hitShake, { toValue: HIT_SHAKE_PX, duration: HIT_SHAKE_MS * 0.35, useNativeDriver: true }),
+      Animated.timing(hitShake, { toValue: -HIT_SHAKE_PX * 0.6, duration: HIT_SHAKE_MS * 0.35, useNativeDriver: true }),
+      Animated.timing(hitShake, { toValue: 0, duration: HIT_SHAKE_MS * 0.3, useNativeDriver: true }),
+    ]).start();
+  };
+
   useEffect(() => {
     if (!matchOver) {
       setResultButtonsReady(false);
@@ -549,6 +582,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
               t.hitColor = COLORS.blue;
               t.explosionVariant = Math.floor(Math.random() * 3);
               playHit(t.explosionVariant);
+              triggerHitShake();
               if (t.isGolden) playGolden();
               const gain = t.isGolden ? t.points * GOLDEN_SCORE_MULTIPLIER : t.points;
               scoreRef.current += gain;
@@ -883,6 +917,8 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     ];
     setBullets(bulletsRef.current);
     playShoot();
+    triggerRecoil();
+    triggerMuzzleFlash();
   };
 
   const fire = () => {
@@ -1063,8 +1099,12 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
       </View>
 
       <View style={{ height: playAreaHeight }}>
-        <View
-          style={[styles.playArea, { height: playAreaHeight }, webTouchStyle]}
+        <Animated.View
+          style={[
+            styles.playArea,
+            { height: playAreaHeight, transform: [{ translateX: hitShake }] },
+            webTouchStyle,
+          ]}
           {...panResponder.panHandlers}
         >
           <Starfield width={width} height={playAreaHeight} level={difficultyLevel} />
@@ -1129,10 +1169,21 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
           {popups.map((p) => (
             <ScorePopup key={p.id} popup={p} />
           ))}
-          <Player x={playerXAnim} y={playerY} scale={playerGrowScale} />
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.muzzleFlash,
+              {
+                top: playerY - PLAYER_SIZE - 10,
+                opacity: muzzleFlash,
+                transform: [{ translateX: Animated.subtract(playerXAnim, 14) }, { scale: muzzleFlash }],
+              },
+            ]}
+          />
+          <Player x={playerXAnim} y={playerY} scale={playerGrowScale} kick={recoilKick} />
           <LevelUpBanner event={levelUpEvent} />
           <PowerUpBanner event={powerUpEvent} />
-        </View>
+        </Animated.View>
 
         {matchOver && (
           <View style={styles.resultOverlay}>
@@ -1302,6 +1353,18 @@ const styles = StyleSheet.create({
   playArea: {
     backgroundColor: COLORS.background,
     overflow: 'hidden',
+  },
+  muzzleFlash: {
+    position: 'absolute',
+    left: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: COLORS.cyan,
+    shadowColor: COLORS.cyan,
+    shadowOpacity: 1,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
   },
   resultOverlay: {
     position: 'absolute',
