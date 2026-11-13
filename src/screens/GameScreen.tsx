@@ -22,6 +22,9 @@ import {
   BULLET_SPEED_STEP,
   BULLET_SPEED_UPGRADE_MULTS,
   COLORS,
+  COMBO_MAX_MULTIPLIER,
+  COMBO_MULT_STEP,
+  COMBO_SHIELD_CHARGES,
   COUNTDOWN_MARKS,
   CURRENCY_ICON,
   CURRENCY_NAME,
@@ -281,6 +284,7 @@ export default function GameScreen({
   const wideStanceLevel = getUpgradeLevel(ownedUpgrades, 'wideStance');
   const wideStanceBonus = wideStanceLevel > 0 ? WIDE_STANCE_SIZE_BONUS[wideStanceLevel - 1] : 0;
   const secondWindLevel = getUpgradeLevel(ownedUpgrades, 'secondWind');
+  const comboShieldLevel = getUpgradeLevel(ownedUpgrades, 'comboShield');
   const effectivePickupChance =
     PICKUP_DROP_CHANCE + (pickupChanceLevel > 0 ? PICKUP_CHANCE_UPGRADE_BONUS[pickupChanceLevel - 1] : 0);
   // Owned or not, this is the real cap for the lifetime of this match —
@@ -322,6 +326,11 @@ export default function GameScreen({
   // Second Wind: how many more missed-pickup refunds are left this match —
   // set once at mount from the owned level, only ever counts down.
   const secondWindUsesLeftRef = useRef(secondWindLevel);
+  // Combo: streak of consecutive landed hits, no miss in between. Combo
+  // Shield forgives a set number of misses per match without zeroing it.
+  const comboRef = useRef(0);
+  const bestComboRef = useRef(0);
+  const comboShieldLeftRef = useRef(comboShieldLevel > 0 ? COMBO_SHIELD_CHARGES[comboShieldLevel - 1] : 0);
   // The real, authoritative cannon size for this frame — catch radius and
   // clamp math read this, not the animated value below, so gameplay never
   // depends on where a spring happens to be mid-bounce.
@@ -379,6 +388,7 @@ export default function GameScreen({
   const [giantMsLeft, setGiantMsLeft] = useState(0);
   const [homingMsLeft, setHomingMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
+  const [combo, setCombo] = useState(0);
   const [botDisplayScore, setBotDisplayScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
   const [matchOver, setMatchOver] = useState(false);
@@ -428,6 +438,26 @@ export default function GameScreen({
       Animated.timing(hitShake, { toValue: -HIT_SHAKE_PX * 0.6, duration: HIT_SHAKE_MS * 0.35, useNativeDriver: true }),
       Animated.timing(hitShake, { toValue: 0, duration: HIT_SHAKE_MS * 0.3, useNativeDriver: true }),
     ]).start();
+  };
+  const comboPulse = useRef(new Animated.Value(1)).current;
+  const triggerComboPulse = () => {
+    comboPulse.setValue(1);
+    Animated.sequence([
+      Animated.timing(comboPulse, { toValue: 1.5, duration: 90, useNativeDriver: true }),
+      Animated.spring(comboPulse, { toValue: 1, friction: 4, useNativeDriver: true }),
+    ]).start();
+  };
+  // A missed shot (a player bullet that leaves the screen without hitting
+  // anything) zeroes the combo — unless Combo Shield has a charge left,
+  // which spends one instead and leaves the streak untouched.
+  const breakCombo = () => {
+    if (comboRef.current === 0) return;
+    if (comboShieldLeftRef.current > 0) {
+      comboShieldLeftRef.current -= 1;
+      return;
+    }
+    comboRef.current = 0;
+    setCombo(0);
   };
 
   // Match result mood: a bouncy, bright entrance for a win, a slow heavy
@@ -561,7 +591,7 @@ export default function GameScreen({
         // A homing bullet steers its direction toward the nearest live target
         // ahead of it each tick, before the position update below uses it —
         // a gradual turn (HOMING_TURN_RATE), not an instant snap.
-        bulletsRef.current = bulletsRef.current
+        const movedBullets = bulletsRef.current
           .map((b) => {
             let dirX = b.dirX;
             let dirY = b.dirY;
@@ -592,8 +622,11 @@ export default function GameScreen({
               }
             }
             return { ...b, dirX, dirY, x: b.x + dirX * bulletSpeed * dt, y: b.y + dirY * bulletSpeed * dt };
-          })
-          .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
+          });
+        const onScreen = (b: BulletState) => b.y > -20 && b.x > -20 && b.x < width + 20;
+        const missedShots = movedBullets.filter((b) => b.owner === 'player' && !onScreen(b)).length;
+        for (let i = 0; i < missedShots; i++) breakCombo();
+        bulletsRef.current = movedBullets.filter(onScreen);
 
         // Collisions: a live bullet (either owner's) entering a lane's hit
         // band near a live target. Both player and bot shoot the same shared
@@ -615,11 +648,18 @@ export default function GameScreen({
               t.explosionVariant = Math.floor(Math.random() * 3);
               playHit(t.explosionVariant);
               if (t.isGolden) playGolden();
-              const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
+              const baseGain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
+              const comboMult =
+                b.owner === 'player' ? Math.min(1 + comboRef.current * COMBO_MULT_STEP, COMBO_MAX_MULTIPLIER) : 1;
+              const gain = Math.round(baseGain * comboMult);
               if (b.owner === 'player') {
                 scoreRef.current += gain;
                 hitsRef.current += 1;
                 shotsHitRef.current += 1;
+                comboRef.current += 1;
+                bestComboRef.current = Math.max(bestComboRef.current, comboRef.current);
+                setCombo(comboRef.current);
+                triggerComboPulse();
                 triggerHitShake();
                 popupsRef.current = [
                   ...popupsRef.current,
@@ -1106,6 +1146,11 @@ export default function GameScreen({
             <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
               {displayScore}
             </Animated.Text>
+            {combo >= 2 && (
+              <Animated.Text style={[styles.comboText, { transform: [{ scale: comboPulse }] }]}>
+                🔥×{combo}
+              </Animated.Text>
+            )}
             {hasTimer && <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>}
             {isVsBot && bot ? (
               <Text style={[styles.levelLabel, { color: bot.color }]}>
@@ -1231,6 +1276,7 @@ export default function GameScreen({
                   shotsFired={shotsFiredRef.current}
                   tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
                   targetsHit={hitsRef.current}
+                  bestCombo={bestComboRef.current}
                   currencyEarned={matchCurrencyEarned}
                   pickupCounts={pickupCountsRef.current}
                 />
@@ -1335,6 +1381,7 @@ export default function GameScreen({
                   shotsFired={shotsFiredRef.current}
                   tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
                   targetsHit={hitsRef.current}
+                  bestCombo={bestComboRef.current}
                   currencyEarned={matchCurrencyEarned}
                   pickupCounts={pickupCountsRef.current}
                 />
@@ -1432,6 +1479,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     letterSpacing: 1,
     marginLeft: 16,
+  },
+  comboText: {
+    color: COLORS.orange,
+    fontSize: 15,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+    marginLeft: 16,
+    textShadowColor: COLORS.orange,
+    textShadowRadius: 10,
+    textShadowOffset: { width: 0, height: 0 },
   },
   scoreText: {
     color: COLORS.textPrimary,
