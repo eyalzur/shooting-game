@@ -129,9 +129,13 @@ export function playGolden() {
 }
 
 export function playPickup(
-  kind: 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant' | 'homing',
+  kind: 'score' | 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'currency' | 'giant' | 'homing' | 'gravityWell',
 ) {
-  if (kind === 'homing') {
+  if (kind === 'gravityWell') {
+    // A descending swirl into a low drone — things being pulled inward and
+    // held there, the opposite contour of magnet's rising sweep.
+    tone(520, { duration: 0.4, type: 'sine', gainPeak: 0.14, freqEnd: 140 });
+  } else if (kind === 'homing') {
     // A quick two-note lock-on blip, distinct from rapidFire's three-note chirp.
     [880, 1318].forEach((f, i) => tone(f, { duration: 0.09, type: 'triangle', gainPeak: 0.1, delay: i * 0.06 }));
   } else if (kind === 'giant') {

@@ -15,6 +15,7 @@ export const PICKUP_ICONS: Record<PickupState['kind'], string> = {
   currency: CURRENCY_ICON,
   giant: '🪐',
   homing: '🎯',
+  gravityWell: '🌀',
 };
 
 // Deliberately distinct from the fixed lane colors (pink/purple/cyan) a
@@ -29,6 +30,7 @@ export const PICKUP_TINTS: Record<PickupState['kind'], string> = {
   currency: COLORS.starlight,
   giant: COLORS.stone,
   homing: COLORS.purple,
+  gravityWell: COLORS.indigo,
 };
 
 // Falls from a broken target, position driven entirely by the game loop
