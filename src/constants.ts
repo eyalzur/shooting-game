@@ -9,13 +9,12 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.25.0',
-    date: '2026-11-13',
-    icon: '↔️',
-    title: 'The cannon drifts on its own now',
+    version: '1.26.0',
+    date: '2026-11-14',
+    icon: '↩️',
+    title: 'Auto-drift cannon removed',
     bullets: [
-      "No more sliding to your finger — the cannon paddles left and right on its own, bouncing off the walls. Tapping fires AND instantly reverses your drift direction, so steering and shooting are the same move.",
-      'Swift Cannon now speeds up the drift instead of the old slide-to-finger glide.',
+      "Didn't land well — pulled back out. Cannon control is back to manual: hold-to-slide, drag to track, tap in place to fire.",
     ],
   },
   {
@@ -480,12 +479,10 @@ export const LEVEL_THEMES = [
 export const LEVELS_PER_THEME = 1;
 
 export const PLAYER_SIZE = 56;
-// The cannon drifts left/right on its own, bouncing off the walls like a
-// paddle — PLAYER_SPEED is that drift speed (upgradeable via Swift Cannon).
-// There's no manual positioning any more: a tap both fires and instantly
-// reverses the drift direction, so steering and shooting are the same input.
 export const PLAYER_SPEED = 260; // px/sec
 export const PLAYER_BOTTOM_MARGIN = 24;
+export const PLAYER_SLIDE_MIN_MS = 70;
+export const PLAYER_SLIDE_MAX_MS = 220;
 
 export const BULLET_SIZE = 18; // spinning stone diameter, px
 export const BULLET_SPEED = 640; // px/sec, upward
@@ -762,7 +759,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     id: 'moveSpeed',
     icon: '🏎️',
     name: 'SWIFT CANNON',
-    description: 'Drifts side to side faster.',
+    description: 'Slides to your hold spot faster.',
     category: 'movement',
     prices: [100, 170, 260],
     statAt: (level) => `×${(level > 0 ? MOVE_SPEED_UPGRADE_MULTS[level - 1] : 1).toFixed(1)} speed`,

@@ -77,6 +77,8 @@ import {
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
   PLAYER_SPEED,
+  PLAYER_SLIDE_MIN_MS,
+  PLAYER_SLIDE_MAX_MS,
   RECOIL_KICK_MS,
   RECOIL_KICK_PX,
   RESPAWN_MAX_MS,
@@ -279,9 +281,6 @@ export default function GameScreen({
   const wideStanceLevel = getUpgradeLevel(ownedUpgrades, 'wideStance');
   const wideStanceBonus = wideStanceLevel > 0 ? WIDE_STANCE_SIZE_BONUS[wideStanceLevel - 1] : 0;
   const secondWindLevel = getUpgradeLevel(ownedUpgrades, 'secondWind');
-  // Fixed for the lifetime of the match, same as maxCharges below — the
-  // cannon's autonomous drift speed, Swift Cannon makes it faster.
-  const driftSpeed = moveSpeedLevel > 0 ? PLAYER_SPEED * MOVE_SPEED_UPGRADE_MULTS[moveSpeedLevel - 1] : PLAYER_SPEED;
   const effectivePickupChance =
     PICKUP_DROP_CHANCE + (pickupChanceLevel > 0 ? PICKUP_CHANCE_UPGRADE_BONUS[pickupChanceLevel - 1] : 0);
   // Owned or not, this is the real cap for the lifetime of this match —
@@ -301,9 +300,6 @@ export default function GameScreen({
 
   const idCounterRef = useRef(LANES.length);
   const playerXRef = useRef(width / 2);
-  // The cannon drifts on its own, bouncing off the walls — 1 is rightward,
-  // -1 leftward. A tap flips this (and fires), the only steering there is.
-  const driftDirRef = useRef<1 | -1>(1);
   // Bot plays on the same board, same bottom row, same shared targets — it
   // just has its own cannon position that it moves on its own.
   const botXRef = useRef(width * 0.5);
@@ -370,9 +366,8 @@ export default function GameScreen({
   const botDisplayScoreRef = useRef(0);
   const botNextShotAtRef = useRef(matchStartRef.current + (bot?.fireIntervalMs ?? 0) * (0.4 + Math.random() * 0.4));
 
-  // Position is set directly every tick (continuous autonomous drift, same
-  // pattern as targets/bullets) rather than eased toward a target.
   const playerXAnim = useRef(new Animated.Value(playerXRef.current)).current;
+  const playerXAnimTargetRef = useRef(playerXRef.current);
   const [botX, setBotX] = useState(botXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
@@ -509,6 +504,7 @@ export default function GameScreen({
       Math.max(playerXRef.current, PLAYER_SIZE / 2),
       width - PLAYER_SIZE / 2
     );
+    playerXAnimTargetRef.current = playerXRef.current;
     playerXAnim.setValue(playerXRef.current);
   }, [width]);
 
@@ -559,23 +555,6 @@ export default function GameScreen({
       // nothing keeps moving behind the result panel, so there's nothing
       // left for a stray tap to land on.
       if (!matchOverRef.current) {
-        // The cannon drifts on its own, bouncing off the walls like a
-        // paddle — the only steering is a tap flipping driftDirRef (see
-        // panResponder below). Position is pushed straight into the
-        // Animated.Value every tick, same as bullets/targets.
-        const playerMin = playerSizeRef.current / 2;
-        const playerMax = width - playerSizeRef.current / 2;
-        let nextPlayerX = playerXRef.current + driftDirRef.current * driftSpeed * dt;
-        if (nextPlayerX <= playerMin) {
-          nextPlayerX = playerMin;
-          driftDirRef.current = 1;
-        } else if (nextPlayerX >= playerMax) {
-          nextPlayerX = playerMax;
-          driftDirRef.current = -1;
-        }
-        playerXRef.current = nextPlayerX;
-        playerXAnim.setValue(nextPlayerX);
-
         targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
         // Bullets: move up, drop once off-screen. Speed ramps with level too.
@@ -999,13 +978,53 @@ export default function GameScreen({
     }
   };
 
-  // The cannon drifts on its own now — there's no manual positioning, so a
-  // touch only matters as a tap: let go quickly without dragging and it both
-  // fires and instantly flips the drift direction (driftDirRef), the only
-  // steering there is. A drag or a long hold is just ignored. Distances are
-  // measured from raw touch coordinates (not PanResponder's own
-  // gestureState.dx/dy), which reports unreliably on some mobile browsers.
+  // A touch does one of two things, decided by how it ends: let go quickly
+  // without dragging and it's a tap — fires in place, cannon doesn't move.
+  // Hold it still past TAP_MAX_DURATION_MS and it becomes a hold — the
+  // cannon eases over to that column (animateTo). Drag past TAP_MAX_DISTANCE
+  // — whether that happens before or after the hold timer — and the cannon
+  // instead tracks the finger 1:1 every move event (trackTo), no easing, so
+  // it reads as the finger pushing it rather than chasing a series of little
+  // slides. No shot fires either way. Which one it is isn't known at
+  // touch-down, so a short timer plus a distance check upgrade a touch to
+  // "hold" the moment either threshold is crossed; release before that and
+  // it's still a tap. Distances are measured from raw touch coordinates (not
+  // PanResponder's own gestureState.dx/dy), which reports unreliably on some
+  // mobile browsers.
   const touchStartRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const lastTouchXRef = useRef(0);
+  const isHoldRef = useRef(false);
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const animateTo = (pageX: number) => {
+    const clamped = Math.min(Math.max(pageX, playerSizeRef.current / 2), width - playerSizeRef.current / 2);
+    playerXRef.current = clamped;
+    const dist = Math.abs(clamped - playerXAnimTargetRef.current);
+    playerXAnimTargetRef.current = clamped;
+    const effectiveSpeed = moveSpeedLevel > 0 ? PLAYER_SPEED * MOVE_SPEED_UPGRADE_MULTS[moveSpeedLevel - 1] : PLAYER_SPEED;
+    const duration = Math.min(
+      PLAYER_SLIDE_MAX_MS,
+      Math.max(PLAYER_SLIDE_MIN_MS, (dist / effectiveSpeed) * 1000)
+    );
+    Animated.timing(playerXAnim, {
+      toValue: clamped,
+      duration,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  };
+  // setValue stops any in-flight animateTo slide and snaps straight to the
+  // finger — used while actively dragging, so motion is 1:1 with the touch.
+  const trackTo = (pageX: number) => {
+    const clamped = Math.min(Math.max(pageX, playerSizeRef.current / 2), width - playerSizeRef.current / 2);
+    playerXRef.current = clamped;
+    playerXAnimTargetRef.current = clamped;
+    playerXAnim.setValue(clamped);
+  };
+  useEffect(() => {
+    return () => {
+      if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+    };
+  }, []);
   const panResponder = useRef(
     PanResponder.create({
       // Once the match is over the result panel owns input exclusively —
@@ -1022,18 +1041,35 @@ export default function GameScreen({
           y: evt.nativeEvent.pageY,
           t: Date.now(),
         };
+        lastTouchXRef.current = evt.nativeEvent.pageX;
+        isHoldRef.current = false;
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        holdTimerRef.current = setTimeout(() => {
+          isHoldRef.current = true;
+          animateTo(lastTouchXRef.current);
+        }, TAP_MAX_DURATION_MS);
       },
-      onPanResponderRelease: (evt) => {
+      onPanResponderMove: (evt) => {
+        if (matchOverRef.current) return;
+        lastTouchXRef.current = evt.nativeEvent.pageX;
+        const start = touchStartRef.current;
+        if (!start) return;
+        if (!isHoldRef.current) {
+          const dx = evt.nativeEvent.pageX - start.x;
+          const dy = evt.nativeEvent.pageY - start.y;
+          if (Math.hypot(dx, dy) < TAP_MAX_DISTANCE) return;
+          isHoldRef.current = true;
+          if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
+        }
+        trackTo(evt.nativeEvent.pageX);
+      },
+      onPanResponderRelease: () => {
+        if (holdTimerRef.current) clearTimeout(holdTimerRef.current);
         const start = touchStartRef.current;
         touchStartRef.current = null;
         if (!start || matchOverRef.current) return;
-        const dx = evt.nativeEvent.pageX - start.x;
-        const dy = evt.nativeEvent.pageY - start.y;
-        const heldMs = Date.now() - start.t;
-        if (Math.hypot(dx, dy) < TAP_MAX_DISTANCE && heldMs < TAP_MAX_DURATION_MS) {
-          driftDirRef.current = driftDirRef.current === 1 ? -1 : 1;
-          fire();
-        }
+        if (!isHoldRef.current) fire();
+        isHoldRef.current = false;
       },
     })
   ).current;
