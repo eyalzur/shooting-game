@@ -13,7 +13,7 @@ const VISIBLE_MS = 1000;
 const CONTENT: Record<PowerUpKind, { icon: string; label: string; sub: string; color: string }> = {
   rapidFire: { icon: '⚡', label: 'RAPID FIRE', sub: 'DOUBLE SHOTS', color: COLORS.green },
   spreadShot: { icon: '🔱', label: 'SPREAD SHOT', sub: '3-WAY FAN', color: COLORS.orange },
-  bomb: { icon: '💣', label: 'NOVA BOMB', sub: 'TARGETS CLEARED', color: COLORS.red },
+  bomb: { icon: '💥', label: 'CORE PULSE', sub: 'TARGETS CLEARED', color: COLORS.red },
   magnet: { icon: '🧲', label: 'MAGNET', sub: 'PICKUPS DRAWN IN', color: COLORS.blue },
   giant: { icon: '🪐', label: 'GROWTH', sub: 'CANNON GROWS', color: COLORS.stone },
   homing: { icon: '🎯', label: 'HOMING', sub: 'BULLETS LOCK ON', color: COLORS.purple },

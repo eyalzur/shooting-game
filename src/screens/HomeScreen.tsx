@@ -1,15 +1,14 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { APP_VERSION, COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
+import { APP_VERSION, COLORS, CURRENCY_ICON, GAME_NAME } from '../constants';
 import { playUiTap } from '../utils/sound';
 
 interface Props {
   bestScore: number;
   lastScore: number | null;
-  onStartSolo: (matchMs: number | null) => void;
-  onStartVs: (matchMs: number | null) => void;
+  onStartSolo: () => void;
   soundOn: boolean;
   onToggleSound: () => void;
   currency: number;
@@ -54,7 +53,6 @@ export default function HomeScreen({
   bestScore,
   lastScore,
   onStartSolo,
-  onStartVs,
   soundOn,
   onToggleSound,
   currency,
@@ -63,7 +61,6 @@ export default function HomeScreen({
   onOpenChangelog,
 }: Props) {
   const { width, height } = useWindowDimensions();
-  const [matchMs, setMatchMs] = useState<number | null>(DURATION_OPTIONS[1].ms);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -106,37 +103,13 @@ export default function HomeScreen({
         )}
       </View>
 
-      <Text style={styles.durationLabel}>GAME TIME</Text>
-      <View style={styles.durationRow}>
-        {DURATION_OPTIONS.map((opt) => (
-          <PressableScale
-            key={opt.label}
-            onPress={() => setMatchMs(opt.ms)}
-            style={[styles.durationChip, opt.ms === matchMs && styles.durationChipActive]}
-            scaleTo={0.9}
-          >
-            <Text style={[styles.durationChipText, opt.ms === matchMs && styles.durationChipTextActive]}>
-              {opt.label}
-            </Text>
-          </PressableScale>
-        ))}
-      </View>
-
       <View style={styles.buttonStack}>
         <MenuButton
           label="SINGLE PLAYER"
           variant="primary"
           onPress={() => {
             playUiTap();
-            onStartSolo(matchMs);
-          }}
-        />
-        <MenuButton
-          label="VS ROBO PLAYER"
-          variant="secondary"
-          onPress={() => {
-            playUiTap();
-            onStartVs(matchMs);
+            onStartSolo();
           }}
         />
       </View>
@@ -298,37 +271,6 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '600',
     opacity: 0.85,
-  },
-  durationLabel: {
-    color: COLORS.textSecondary,
-    fontSize: 11,
-    letterSpacing: 2,
-    marginBottom: 10,
-  },
-  durationRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 28,
-  },
-  durationChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.5)',
-  },
-  durationChipActive: {
-    borderColor: COLORS.cyan,
-    backgroundColor: 'rgba(90,216,255,0.16)',
-  },
-  durationChipText: {
-    color: COLORS.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  durationChipTextActive: {
-    color: COLORS.textPrimary,
   },
   buttonStack: {
     gap: 16,
