@@ -1,35 +1,38 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
-import { COLORS, EXPLOSION_MS } from '../constants';
-import { TargetState } from '../types';
+import { BOUNCE_FLASH_MS, COLORS, EXPLOSION_MS } from '../constants';
+import { LaneConfig, TargetState } from '../types';
 import { shadeColor } from '../utils/color';
+import { playBounce } from '../utils/sound';
 
 interface Props {
   target: TargetState;
+  lane: LaneConfig;
+  laneY: number;
 }
 
 const SPARK_ANGLES_DEG = [0, 60, 120, 180, 240, 300];
 const SHATTER_ANGLES_DEG = [10, 55, 95, 140, 180, 220, 265, 310];
 const IMPLODE_ANGLES_DEG = [30, 100, 170, 230, 300];
 
-export default function Target({ target }: Props) {
+export default function Target({ target, lane, laneY }: Props) {
   const isHit = target.hitAt !== null;
-  const glowSize = target.size * 1.9;
-  // The explosion is colored by whoever's bullet landed it, not the
-  // planet's own tier color — that's the whole point: it reads as "who
-  // scored this" at a glance.
-  const explosionColor = target.hitColor ?? target.color;
+  const glowSize = lane.size * 1.9;
+  // The explosion is colored by whoever's bullet landed it (blue player,
+  // red bot), not the target's own lane color — that's the whole point:
+  // it reads as "who scored this" at a glance.
+  const explosionColor = target.hitColor ?? lane.color;
   const variant = target.explosionVariant % 3;
-  // A golden planet is the same tier shape, just recolored gold and given an
+  // A golden target is the same lane shape, just recolored gold and given an
   // extra pulsing ring, so it reads as special at a glance without a new
   // sprite. The pulse is derived straight from the spin phase the game loop
   // already advances every tick, not a standalone Animated loop.
-  const baseColor = target.isGolden ? COLORS.gold : target.color;
+  const baseColor = target.isGolden ? COLORS.gold : lane.color;
   const goldenPulse = target.isGolden ? 0.4 + 0.4 * Math.abs(Math.sin(target.spin * Math.PI * 4)) : 0;
   // A gradient-shaded little planet — a lit sphere with a couple of darker
   // surface patches and a soft highlight, like a spinning moon or Mars —
-  // shaded entirely from the tier/gold color via shadeColor, no second
+  // shaded entirely from the lane/gold color via shadeColor, no second
   // color defined anywhere.
   const planetLight = shadeColor(baseColor, 45);
   const planetDark = shadeColor(baseColor, -35);
@@ -54,6 +57,25 @@ export default function Target({ target }: Props) {
     }
     prevHitAt.current = target.hitAt;
   }, [target.hitAt, explode]);
+
+  // A quick bright flash + pop every time the target bounces off a side
+  // wall — another finite, one-shot animation triggered off state the game
+  // loop already tracks (bounceId), same safe pattern as the explosion.
+  const bounce = useRef(new Animated.Value(0)).current;
+  const prevBounceId = useRef(target.bounceId);
+  useEffect(() => {
+    if (target.bounceId !== prevBounceId.current) {
+      bounce.setValue(1);
+      Animated.timing(bounce, {
+        toValue: 0,
+        duration: BOUNCE_FLASH_MS,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+      playBounce();
+    }
+    prevBounceId.current = target.bounceId;
+  }, [target.bounceId, bounce]);
 
   // CSS rotateX/rotateY spins the whole flat circle as a rigid plane, which
   // inevitably flattens to a thin line edge-on — reads as a spinning disc,
@@ -101,6 +123,9 @@ export default function Target({ target }: Props) {
     };
   });
 
+  const bouncePop = bounce.interpolate({ inputRange: [0, 1], outputRange: [1, 1.3] });
+  const bounceFlashOpacity = bounce;
+
   // Variant 0 — Burst: ring expands outward, round sparks fly out, core
   // blooms and fades.
   const burstSparkOpacity = explode.interpolate({ inputRange: [0, 0.15, 1], outputRange: [0, 1, 0] });
@@ -109,9 +134,8 @@ export default function Target({ target }: Props) {
   const burstRingScale = explode.interpolate({ inputRange: [0, 1], outputRange: [0.4, 2.6] });
   const burstRingOpacity = explode.interpolate({ inputRange: [0, 1], outputRange: [0.8, 0] });
 
-  // Variant 1 — Shatter: the planet cracks into little spinning shards
-  // instead of a round burst; the core crumbles away fast rather than
-  // blooming.
+  // Variant 1 — Shatter: the star cracks into little spinning shards instead
+  // of a round burst; the core crumbles away fast rather than blooming.
   const shatterCoreOpacity = explode.interpolate({ inputRange: [0, 0.4, 1], outputRange: [1, 0.5, 0] });
   const shatterCoreScale = explode.interpolate({ inputRange: [0, 1], outputRange: [1, 0.1] });
   const shardOpacity = explode.interpolate({ inputRange: [0, 0.1, 0.8, 1], outputRange: [0, 1, 1, 0] });
@@ -129,7 +153,7 @@ export default function Target({ target }: Props) {
       style={{
         position: 'absolute',
         left: target.x - glowSize / 2,
-        top: target.y - glowSize / 2,
+        top: laneY - glowSize / 2,
         width: glowSize,
         height: glowSize,
         alignItems: 'center',
@@ -259,16 +283,16 @@ export default function Target({ target }: Props) {
               style={[
                 styles.goldRing,
                 {
-                  width: target.size * 1.55,
-                  height: target.size * 1.55,
-                  borderRadius: target.size * 0.78,
+                  width: lane.size * 1.55,
+                  height: lane.size * 1.55,
+                  borderRadius: lane.size * 0.78,
                   borderColor: COLORS.gold,
                   opacity: goldenPulse,
                 },
               ]}
             />
           )}
-          <View style={[styles.spinWrap, { width: target.size, height: target.size }]}>
+          <View style={[styles.spinWrap, { width: lane.size, height: lane.size }]}>
             <Svg width="100%" height="100%" viewBox="0 0 100 100">
               <Defs>
                 <RadialGradient id={planetGradId} cx="0.36" cy="0.32" r="0.75">
@@ -303,9 +327,9 @@ export default function Target({ target }: Props) {
             // Idle, the planet sphere above is the whole visible body — this
             // dot only matters for the explosion's crumbling-core look, so
             // it's invisible until a hit starts it.
-            width: target.size,
-            height: target.size,
-            borderRadius: target.size / 2,
+            width: lane.size,
+            height: lane.size,
+            borderRadius: lane.size / 2,
             backgroundColor: isHit ? explosionColor : baseColor,
             shadowColor: isHit ? explosionColor : baseColor,
             opacity: isHit ? (variant === 1 ? shatterCoreOpacity : variant === 2 ? implodeCoreOpacity : burstCoreOpacity) : 0,
@@ -317,12 +341,27 @@ export default function Target({ target }: Props) {
                     : variant === 2
                       ? implodeCoreScale
                       : burstCoreScale
-                  : 1,
+                  : bouncePop,
               },
             ],
           },
         ]}
       />
+      {!isHit && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.bounceFlash,
+            {
+              width: lane.size,
+              height: lane.size,
+              borderRadius: lane.size / 2,
+              opacity: bounceFlashOpacity,
+              transform: [{ scale: bouncePop }],
+            },
+          ]}
+        />
+      )}
     </View>
   );
 }
@@ -372,5 +411,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
+  },
+  bounceFlash: {
+    position: 'absolute',
+    backgroundColor: '#ffffff',
+    shadowColor: '#ffffff',
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 0 },
   },
 });
