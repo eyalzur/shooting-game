@@ -2,16 +2,6 @@ import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopCateg
 
 export const GAME_NAME = 'Orbit Breaker';
 
-// Combo: landing hits back-to-back ramps a score multiplier; missing a shot
-// (a player bullet that leaves the screen without hitting anything) drops
-// it straight back to zero — pure skill expression on top of the base
-// per-lane points, no new mechanic to learn.
-export const COMBO_MULT_STEP = 0.12; // +12% score per consecutive hit
-export const COMBO_MAX_MULTIPLIER = 3; // caps the ramp
-// Combo Shield (shop item): forgives a miss without breaking the streak,
-// up to the owned number of times per match.
-export const COMBO_SHIELD_CHARGES = [1, 2, 3];
-
 export const SPLASH_MIN_DURATION_MS = 1500;
 
 // Newest first. APP_VERSION is derived from the top entry so the two can
@@ -19,13 +9,12 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '1.23.0',
+    version: '1.24.0',
     date: '2026-11-13',
-    icon: '🔥',
-    title: 'Combo multiplier',
+    icon: '↩️',
+    title: 'Combo multiplier removed',
     bullets: [
-      'Landing hits back-to-back now ramps a score multiplier, up to ×3 — miss a shot and it drops straight back to zero.',
-      'New Combo Shield upgrade (Luck): forgives a miss without breaking your streak, up to the owned number of times per match.',
+      "Didn't land well — pulled back out. Scoring is back to flat per-lane points, no streak-dependent multiplier.",
     ],
   },
   {
@@ -812,14 +801,5 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     category: 'luck',
     prices: [150, 240, 370],
     statAt: (level) => `${level} refund${level === 1 ? '' : 's'}`,
-  },
-  {
-    id: 'comboShield',
-    icon: '🛡️',
-    name: 'COMBO SHIELD',
-    description: 'A missed shot forgives your streak instead of resetting it.',
-    category: 'luck',
-    prices: [170, 270, 400],
-    statAt: (level) => `${level} forgiven miss${level === 1 ? '' : 'es'}`,
   },
 ];
