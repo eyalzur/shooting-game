@@ -93,8 +93,7 @@ export type UpgradeId =
   | 'piercing'
   | 'homingShot'
   | 'wideStance'
-  | 'secondWind'
-  | 'comboShield';
+  | 'secondWind';
 
 /** Groups shop items by what they affect, so the Shop and Player screens can
  * present "a weapon upgrade" differently from "a luck upgrade" instead of
