@@ -519,10 +519,19 @@ export const PLANET_SPIN_MS = 4200;
 // one, and charges regen over time — so taps burst a couple of shots then
 // have to wait, instead of spamming freely. Recharge speeds up with level,
 // making it an upgradeable stat (groundwork for multiplayer loadouts later).
-export const FIRE_MAX_CHARGES = 2;
-export const FIRE_RECHARGE_MS = 1000; // ms per charge at level 0
-export const FIRE_RECHARGE_MIN_MS = 360; // fastest recharge, at max level
+export const FIRE_MAX_CHARGES = 3;
+export const FIRE_RECHARGE_MS = 650; // ms per charge at level 0
+export const FIRE_RECHARGE_MIN_MS = 280; // fastest recharge, at max level
 export const FIRE_RECHARGE_STEP = 0.035; // -3.5% recharge time per level
+
+// Fire-feel feedback: a quick cannon recoil kick and muzzle flash on every
+// shot, and a brief screen shake on a solid planet hit — pure juice, no
+// effect on hitboxes or scoring.
+export const RECOIL_KICK_PX = 7;
+export const RECOIL_KICK_MS = 90;
+export const MUZZLE_FLASH_MS = 90;
+export const HIT_SHAKE_PX = 5;
+export const HIT_SHAKE_MS = 90;
 
 // A touch counts as "fire" only if it barely moved and was quick, so a
 // swipe-to-move gesture never also fires a shot.
