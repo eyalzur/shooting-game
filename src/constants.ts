@@ -1,4 +1,4 @@
-import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, PlanetTierConfig, ShopCategory, ShopItemDef } from './types';
+import { AccuracyTierDef, ChangelogEntry, CurrencyPackDef, LaneConfig, ShopCategory, ShopItemDef } from './types';
 
 export const GAME_NAME = 'Orbit Breaker';
 
@@ -9,16 +9,23 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.22.0',
+    date: '2026-11-13',
+    icon: '↩️',
+    title: 'Back to the classic 3-lane gameplay',
+    bullets: [
+      "The core-defense redesign (planets arcing in toward your cannon) didn't play as well as the original — reverted back to the 3-lane bouncing-target game.",
+      'Keeping the Orbit Breaker name and the fire-feel improvements: faster clip (3 charges, quicker recharge), recoil kick, muzzle flash, and a hit shake on every kill.',
+    ],
+  },
+  {
     version: '1.21.0',
     date: '2026-11-13',
     icon: '🛡️',
-    title: 'A whole new way to play: defend your core',
+    title: 'A whole new way to play: defend your core (reverted in 1.22.0)',
     bullets: [
-      'Planets now drift in from the edges toward your own cannon instead of just bouncing sideways in fixed lanes.',
-      'Shoot one down and it breaks into 2-4 debris chunks that scatter on their own — finish them off for a bonus, or let them go and hope they miss.',
-      'Your cannon has a 5-point shield: anything that reaches it costs a point, and the match ends when it runs out. No more countdown timer.',
-      "The old screen-clearing bomb pickup is renamed Core Pulse.",
-      'VS Robo Player is on hold while it gets redesigned around this new core-defense loop — back soon.',
+      'Planets drifted in from the edges toward your own cannon instead of bouncing sideways in fixed lanes.',
+      'Reverted the next version — see 1.22.0.',
     ],
   },
   {
@@ -27,7 +34,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     icon: '🛰️',
     title: 'Nova Strike is now Orbit Breaker',
     bullets: [
-      'New name, new look on the way — the core-defense redesign lands in the next update.',
+      'New name — Orbit Breaker.',
     ],
   },
   {
@@ -413,23 +420,22 @@ export const COLORS = {
   sad: '#7a6878',
 };
 
-// Planet tiers, picked at random per spawn instead of tied to a fixed row —
-// a big/slow/high-value planet is just as likely to show up as a
-// small/fast/low-value one. Same size/speed/points/color shape the old fixed
-// lanes used, just no longer positional.
-export const PLANET_TIERS: PlanetTierConfig[] = [
-  { size: 46, minSpeed: 60, maxSpeed: 85, points: 30, color: COLORS.pink },
-  { size: 34, minSpeed: 80, maxSpeed: 105, points: 20, color: COLORS.purple },
-  { size: 24, minSpeed: 100, maxSpeed: 130, points: 10, color: COLORS.cyan },
+// Lanes ordered far -> near. Far targets are bigger (easier to see at
+// distance, offsetting the longer bullet travel time) but move faster and
+// score more; near targets are smaller, slower, and worth less. Each target
+// re-rolls its speed within [minSpeed, maxSpeed] every time it bounces off a
+// wall, so movement isn't perfectly uniform even within one lane.
+export const LANES: LaneConfig[] = [
+  { y: 0.12, size: 46, minSpeed: 100, maxSpeed: 140, points: 30, color: COLORS.pink },
+  { y: 0.32, size: 34, minSpeed: 80, maxSpeed: 110, points: 20, color: COLORS.purple },
+  { y: 0.52, size: 24, minSpeed: 58, maxSpeed: 82, points: 10, color: COLORS.cyan },
 ];
 
-// Difficulty climbs with total planets destroyed: every DIFFICULTY_STEP_HITS
-// hits, newly-spawned planets get a bit faster, smaller, and more erratic
-// (wider speed range), spawn more often, and bullets get a bit faster too.
-// Misses don't cost a level — they just don't add to it — so a long survival
-// run keeps climbing as long as the player keeps landing shots, all the way
-// up to DIFFICULTY_MAX_LEVEL. Only new spawns are affected; a planet already
-// in flight keeps the speed/size it was given at spawn.
+// Difficulty climbs with total hits landed: every DIFFICULTY_STEP_HITS hits,
+// targets get a bit faster, smaller, and more erratic (wider speed range), and
+// bullets get a bit faster too. Misses don't cost a level — they just don't
+// add to it — so a long session keeps climbing as long as the player keeps
+// landing shots, all the way up to DIFFICULTY_MAX_LEVEL.
 export const DIFFICULTY_STEP_HITS = 3;
 export const DIFFICULTY_SPEED_STEP = 0.1; // +10% speed per level
 export const DIFFICULTY_SIZE_STEP = 0.05; // -5% size per level
@@ -438,42 +444,6 @@ export const DIFFICULTY_MAX_LEVEL = 24;
 export const DIFFICULTY_MIN_SIZE_MULTIPLIER = 0.4;
 export const BULLET_SPEED_STEP = 0.04; // +4% bullet speed per level
 export const BULLET_SPEED_MAX_MULTIPLIER = 1.8;
-
-// Core-defense spawn/movement tuning. A planet's initial heading is offset
-// from the straight bearing to the core by a random angle, then gradually
-// corrected back in every tick at PLANET_TURN_RATE — slower than a homing
-// bullet's turn rate, so the path reads as a gentle incoming arc rather than
-// an instant snap-to-target missile.
-export const PLANET_TURN_RATE = 0.8; // (unit-vector fraction)/sec
-export const PLANET_SPAWN_ANGLE_OFFSET = 0.6; // radians, ± at spawn
-export const MAX_LIVE_PLANETS = 6;
-export const PLANET_SPAWN_BASE_MS = 1300;
-export const PLANET_SPAWN_MIN_MS = 500;
-export const PLANET_SPAWN_STEP = 0.035; // -3.5% spawn interval per difficulty level
-
-// A shot planet breaks into 2-4 debris chunks that scatter on their own
-// momentum (no steering, unlike a planet) — they can still reach the core,
-// or be shot down for a smaller bonus, but don't fragment further.
-export const DEBRIS_COUNT_MIN = 2;
-export const DEBRIS_COUNT_MAX = 4;
-export const DEBRIS_SIZE = 10;
-export const DEBRIS_SPEED_MIN = 90;
-export const DEBRIS_SPEED_MAX = 190;
-export const DEBRIS_POINTS = 5;
-export const DEBRIS_LIFETIME_MS = 4000; // despawns on its own if it never reaches the core or screen edge
-export const DEBRIS_POP_MS = 220; // shot-debris pop animation duration, shared with Debris.tsx
-
-// Bullet-vs-planet/debris collision is a circle test now (nothing is
-// lane-locked any more) — this is forgiveness added on top of the target's
-// own radius, not a hard requirement for a pixel-perfect overlap.
-export const BULLET_HIT_PAD = 12;
-
-// The core is the player's own cannon — there's no separate sprite for it.
-// Any planet or debris chunk that gets within its own radius + the cannon's
-// radius (+ a little forgiveness) costs one shield point and is removed.
-// Shield hitting 0 ends the match — the sole end condition.
-export const SHIELD_MAX = 5;
-export const CORE_HIT_PAD = 2;
 
 // Background theme changes every level so leveling up visibly changes the
 // scene, not just the numbers. Nebula positions/sizes also drift per theme
@@ -501,19 +471,22 @@ export const BULLET_SPEED = 640; // px/sec, upward
 export const BULLET_SPIN_MS = 550; // ms per full rotation
 export const MAX_BULLETS = 6;
 
-// A hit planet explodes, then waits a randomized stretch before it's
-// actually removed from play — just long enough for the explosion
-// animation to read, never the same rhythm twice.
-export const DESPAWN_MIN_MS = 500;
-export const DESPAWN_MAX_MS = 1300;
+export const HIT_BAND = 26; // px tolerance around a lane's y for collision
+// A hit target explodes, then waits a randomized stretch before respawning —
+// never the same rhythm twice.
+export const RESPAWN_MIN_MS = 500;
+export const RESPAWN_MAX_MS = 1300;
 export const EXPLOSION_MS = 420;
+// A target flashes bright and pops slightly every time it bounces off a
+// side wall — a small finite animation, never a loop.
+export const BOUNCE_FLASH_MS = 220;
 // How long a "+N" score popup floats up and fades before it's removed.
 export const SCORE_POPUP_MS = 900;
 
-// Planets are spinning spheres; rotation is driven by the main game loop
+// Targets are spinning stars; rotation is driven by the main game loop
 // (TargetState.spin), not a standalone Animated loop, so it can never
 // desync or stall independently of the rest of the game.
-export const PLANET_SPIN_MS = 4200;
+export const STAR_SPIN_MS = 4200;
 
 // Fire cooldown: the player has a small pool of charges, each shot spends
 // one, and charges regen over time — so taps burst a couple of shots then
@@ -525,8 +498,8 @@ export const FIRE_RECHARGE_MIN_MS = 280; // fastest recharge, at max level
 export const FIRE_RECHARGE_STEP = 0.035; // -3.5% recharge time per level
 
 // Fire-feel feedback: a quick cannon recoil kick and muzzle flash on every
-// shot, and a brief screen shake on a solid planet hit — pure juice, no
-// effect on hitboxes or scoring.
+// shot, and a brief screen shake on a solid hit — pure juice, no effect on
+// hitboxes or scoring.
 export const RECOIL_KICK_PX = 7;
 export const RECOIL_KICK_MS = 90;
 export const MUZZLE_FLASH_MS = 90;
@@ -538,14 +511,32 @@ export const HIT_SHAKE_MS = 90;
 export const TAP_MAX_DISTANCE = 18; // px
 export const TAP_MAX_DURATION_MS = 200;
 
-// VS mode is being redesigned as a separate follow-up (rival cores, each
-// with its own shield) — BOT_LEVELS is unused by GameScreen right now, kept
-// only so BotSelectScreen.tsx still compiles standalone.
+// Match length is picked once, at the home screen, before either mode —
+// solo or vs. null means no timer: play until you tap Home (solo's
+// original endless mode).
+export const DURATION_OPTIONS: { label: string; ms: number | null }[] = [
+  { label: '30s', ms: 30000 },
+  { label: '1m', ms: 60000 },
+  { label: '2m', ms: 120000 },
+  { label: '∞', ms: null },
+];
+
+// VS mode: a timed (or untimed) match against a simulated "robo player"
+// opponent, picked at the start, playing on the SAME board as the player —
+// same targets, same bottom row, both cannons visibly moving and firing at
+// the same time. The bot isn't a dice roll: it physically tracks the
+// nearest live target and fires at its own real x position, so misses
+// happen because its aim or reflexes are worse, same as a real player
+// would miss.
 export const BOT_LEVELS = [
   { name: 'Rookie', color: COLORS.redLight, trackSpeed: 100, aimJitter: 46, fireIntervalMs: 1500 },
   { name: 'Veteran', color: COLORS.red, trackSpeed: 170, aimJitter: 22, fireIntervalMs: 1150 },
   { name: 'Ace', color: COLORS.redDark, trackSpeed: 250, aimJitter: 8, fireIntervalMs: 850 },
 ];
+// How fast the bot's aim wobbles via a random walk (px/sec of drift), on
+// top of its per-level aimJitter amplitude — keeps its aim visibly unsteady
+// rather than snapping to a fixed offset.
+export const BOT_JITTER_WALK_SPEED = 70;
 
 // Enhancements: rare bonus mechanics layered on the base game — golden
 // double-score stars, and pickups that sometimes fall from a broken target
@@ -623,11 +614,16 @@ export const SPREAD_ANGLE_DEG = 5;
 // this many ms, instead of all leaving at once.
 export const COMBO_STAGGER_MS = 70;
 
-// Stardust: the shop currency. Earned mid-match from currency pickups and
-// the end-of-match accuracy bonus — kept permanently, through a loss, a tab
-// close, whatever.
+// Match timer: a big on-screen pulse fires once per second as the clock
+// crosses these marks, so the final stretch of a timed match feels tense.
+export const COUNTDOWN_MARKS = [10, 5, 3, 2, 1];
+
+// Stardust: the shop currency. Earned mid-match from currency pickups, and
+// as a reward for winning a vs-bot match — kept permanently either way,
+// through a loss, a tab close, whatever.
 export const CURRENCY_NAME = 'Stardust';
 export const CURRENCY_ICON = '✨';
+export const WIN_CURRENCY_REWARD = 25;
 
 // Marksmanship: an end-of-match accuracy stat (player bullets landed ÷
 // player bullets fired) with a Stardust bonus — scaled by accuracy, but
@@ -709,7 +705,7 @@ export const SHOP_ITEMS: ShopItemDef[] = [
     id: 'piercing',
     icon: '⚔️',
     name: 'PIERCING ROUNDS',
-    description: 'Shots punch through to the debris behind it.',
+    description: 'Shots punch through to the target behind it.',
     category: 'weapon',
     prices: [140, 230, 350],
     statAt: (level) => `${1 + level} target${level > 0 ? 's' : ''}/shot`,

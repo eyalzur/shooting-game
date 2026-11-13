@@ -9,7 +9,6 @@ interface Props {
   shotsFired: number;
   tier: AccuracyTierDef;
   targetsHit: number;
-  fragmentsHit: number;
   currencyEarned: number;
   pickupCounts: Partial<Record<PickupKind, number>>;
 }
@@ -50,7 +49,7 @@ function CountUp({ value, style, prefix = '' }: { value: number; style: object; 
 // emoji), and a row of chips for what actually happened this match —
 // targets destroyed and every pickup kind caught, so a win feels detailed,
 // not just a bare number.
-export default function ResultStats({ shotsHit, shotsFired, tier, targetsHit, fragmentsHit, currencyEarned, pickupCounts }: Props) {
+export default function ResultStats({ shotsHit, shotsFired, tier, targetsHit, currencyEarned, pickupCounts }: Props) {
   const accuracyPct = shotsFired > 0 ? Math.round((shotsHit / shotsFired) * 100) : 0;
   const pickupEntries = (Object.entries(pickupCounts) as [PickupKind, number][]).filter(([, n]) => n > 0);
 
@@ -78,18 +77,12 @@ export default function ResultStats({ shotsHit, shotsFired, tier, targetsHit, fr
         </View>
       )}
 
-      {(targetsHit > 0 || fragmentsHit > 0 || pickupEntries.length > 0) && (
+      {(targetsHit > 0 || pickupEntries.length > 0) && (
         <View style={styles.statsRow}>
           {targetsHit > 0 && (
             <View style={styles.statChip}>
               <Text style={styles.statChipIcon}>🎯</Text>
               <Text style={styles.statChipValue}>{targetsHit}</Text>
-            </View>
-          )}
-          {fragmentsHit > 0 && (
-            <View style={styles.statChip}>
-              <Text style={styles.statChipIcon}>☄️</Text>
-              <Text style={styles.statChipValue}>{fragmentsHit}</Text>
             </View>
           )}
           {pickupEntries.map(([kind, n]) => (

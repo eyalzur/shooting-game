@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, PanResponder, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Bullet from '../components/Bullet';
-import Debris from '../components/Debris';
+import CountdownPulse, { CountdownEvent } from '../components/CountdownPulse';
 import LevelUpBanner from '../components/LevelUpBanner';
 import Pickup from '../components/Pickup';
 import PowerUpBanner, { PowerUpKind } from '../components/PowerUpBanner';
@@ -10,30 +10,21 @@ import PressableScale from '../components/PressableScale';
 import Player from '../components/Player';
 import ResultStats from '../components/ResultStats';
 import ScorePopup from '../components/ScorePopup';
-import ShieldMeter from '../components/ShieldMeter';
 import Starfield from '../components/Starfield';
 import Target from '../components/Target';
 import {
   ACCURACY_BONUS_MAX,
   ACCURACY_BONUS_MIN,
   ACCURACY_TIERS,
-  BULLET_HIT_PAD,
+  BOT_JITTER_WALK_SPEED,
   BULLET_SPEED,
   BULLET_SPEED_MAX_MULTIPLIER,
   BULLET_SPEED_STEP,
   BULLET_SPEED_UPGRADE_MULTS,
   COLORS,
-  CORE_HIT_PAD,
-  DEBRIS_COUNT_MAX,
-  DEBRIS_COUNT_MIN,
-  DEBRIS_POINTS,
-  DEBRIS_POP_MS,
-  DEBRIS_SIZE,
-  DEBRIS_SPEED_MAX,
-  DEBRIS_SPEED_MIN,
-  DEBRIS_LIFETIME_MS,
-  DESPAWN_MAX_MS,
-  DESPAWN_MIN_MS,
+  COUNTDOWN_MARKS,
+  CURRENCY_ICON,
+  CURRENCY_NAME,
   DIFFICULTY_MAX_LEVEL,
   DIFFICULTY_MIN_SIZE_MULTIPLIER,
   DIFFICULTY_RANGE_STEP,
@@ -46,21 +37,20 @@ import {
   FIRE_RECHARGE_MIN_MS,
   FIRE_RECHARGE_MS,
   FIRE_RECHARGE_STEP,
-  HIT_SHAKE_MS,
-  HIT_SHAKE_PX,
-  MUZZLE_FLASH_MS,
-  RECOIL_KICK_MS,
-  RECOIL_KICK_PX,
   GIANT_BASE_DURATION_MS,
   GIANT_BASE_SIZE_MULT,
   GIANT_DURATION_BONUS_MS,
   GIANT_SIZE_MULTS,
   GOLDEN_SCORE_MULTIPLIER,
   GOLDEN_STAR_CHANCE,
+  HIT_BAND,
+  HIT_SHAKE_MS,
+  HIT_SHAKE_PX,
   HOMING_TURN_RATE,
+  LANES,
   MAX_BULLETS,
-  MAX_LIVE_PLANETS,
   MOVE_SPEED_UPGRADE_MULTS,
+  MUZZLE_FLASH_MS,
   OWNED_FIRE_PATTERN_WINDOW_MS,
   PICKUP_BOMB_CHANCE,
   PICKUP_CHANCE_UPGRADE_BONUS,
@@ -84,29 +74,27 @@ import {
   PICKUP_SPREAD_CHANCE,
   PICKUP_SPREAD_DURATION_MS,
   PIERCE_EXTRA_HITS,
-  PLANET_SPAWN_ANGLE_OFFSET,
-  PLANET_SPAWN_BASE_MS,
-  PLANET_SPAWN_MIN_MS,
-  PLANET_SPAWN_STEP,
-  PLANET_SPIN_MS,
-  PLANET_TIERS,
-  PLANET_TURN_RATE,
   PLAYER_BOTTOM_MARGIN,
   PLAYER_SIZE,
   PLAYER_SPEED,
   PLAYER_SLIDE_MIN_MS,
   PLAYER_SLIDE_MAX_MS,
+  RECOIL_KICK_MS,
+  RECOIL_KICK_PX,
+  RESPAWN_MAX_MS,
+  RESPAWN_MIN_MS,
   SCORE_POPUP_MS,
   SECOND_WIND_REFUND,
-  SHIELD_MAX,
   SPREAD_ANGLE_DEG,
   COMBO_STAGGER_MS,
+  STAR_SPIN_MS,
   TAP_MAX_DISTANCE,
   TAP_MAX_DURATION_MS,
   WIDE_STANCE_SIZE_BONUS,
+  WIN_CURRENCY_REWARD,
 } from '../constants';
-import { BulletState, DebrisState, PickupKind, PickupState, PlanetTierConfig, ScorePopupState, TargetState, UpgradeId } from '../types';
-import { playGolden, playHit, playBounce, playLevelUp, playLose, playPickup, playShoot, playUiTap, startMusic, stopMusic } from '../utils/sound';
+import { BotConfig, BulletState, GameMode, LaneConfig, PickupKind, PickupState, ScorePopupState, TargetState, UpgradeId } from '../types';
+import { playDraw, playGolden, playHit, playLevelUp, playLose, playPickup, playShoot, playTimeUp, playUiTap, playWin, startMusic, stopMusic } from '../utils/sound';
 
 const TOP_BAR_HEIGHT = 56;
 
@@ -115,23 +103,22 @@ const TOP_BAR_HEIGHT = 56;
 // land on them by accident.
 const RESULT_BUTTONS_DELAY_MS = 2500;
 
-// Planets get a bit faster, smaller, and more erratic every
+// Targets get a bit faster, smaller, and more erratic every
 // DIFFICULTY_STEP_HITS hits, capped at DIFFICULTY_MAX_LEVEL so it ramps up
 // without becoming impossible. The min/max speed range widens with level too,
-// so movement becomes less predictable as the player improves. Only new
-// spawns are affected — a planet already in flight keeps what it was given.
-function getEffectivePlanetTiers(level: number): PlanetTierConfig[] {
+// so bounces become less predictable as the player improves.
+function getEffectiveLanes(level: number): LaneConfig[] {
   const speedMul = 1 + level * DIFFICULTY_SPEED_STEP;
   const sizeMul = Math.max(DIFFICULTY_MIN_SIZE_MULTIPLIER, 1 - level * DIFFICULTY_SIZE_STEP);
   const rangeMul = 1 + level * DIFFICULTY_RANGE_STEP;
-  return PLANET_TIERS.map((tier) => {
-    const baseMin = tier.minSpeed * speedMul;
-    const baseMax = tier.maxSpeed * speedMul;
+  return LANES.map((lane) => {
+    const baseMin = lane.minSpeed * speedMul;
+    const baseMax = lane.maxSpeed * speedMul;
     const center = (baseMin + baseMax) / 2;
     const half = ((baseMax - baseMin) / 2) * rangeMul;
     return {
-      ...tier,
-      size: tier.size * sizeMul,
+      ...lane,
+      size: lane.size * sizeMul,
       minSpeed: center - half,
       maxSpeed: center + half,
     };
@@ -144,10 +131,6 @@ function getEffectiveBulletSpeed(level: number, bulletSpeedLevel: number) {
   return BULLET_SPEED * mul * upgradeMul;
 }
 
-function getEffectiveSpawnMs(level: number) {
-  return Math.max(PLANET_SPAWN_MIN_MS, PLANET_SPAWN_BASE_MS * (1 - level * PLANET_SPAWN_STEP));
-}
-
 // How many times this upgrade id appears in the owned list — that count is
 // its level (0 = not owned).
 function getUpgradeLevel(ownedUpgrades: UpgradeId[], id: UpgradeId) {
@@ -158,100 +141,18 @@ function getEffectiveRechargeMs(level: number) {
   return Math.max(FIRE_RECHARGE_MIN_MS, FIRE_RECHARGE_MS * (1 - level * FIRE_RECHARGE_STEP));
 }
 
-function randomSpeedForTier(tier: PlanetTierConfig) {
-  return tier.minSpeed + Math.random() * (tier.maxSpeed - tier.minSpeed);
+function randomXForLane(size: number, width: number) {
+  const min = size / 2;
+  const max = width - size / 2;
+  return min + Math.random() * (max - min);
 }
 
-function randomDespawnDelay() {
-  return DESPAWN_MIN_MS + Math.random() * (DESPAWN_MAX_MS - DESPAWN_MIN_MS);
+function randomSpeedForLane(lane: LaneConfig) {
+  return lane.minSpeed + Math.random() * (lane.maxSpeed - lane.minSpeed);
 }
 
-// A planet spawns at a random point along the top or side edges (never the
-// bottom — that's where the player's own cannon/core already is), aimed at
-// the core with a random angular offset baked into its starting heading.
-// The per-tick turn-rate correction in advancePlanets gradually bends that
-// offset back in, which is what reads as a curving approach.
-function spawnEdgePoint(width: number, playAreaHeight: number): { x: number; y: number } {
-  const edge = Math.floor(Math.random() * 3); // 0 top, 1 left, 2 right
-  if (edge === 0) return { x: Math.random() * width, y: -40 };
-  const y = Math.random() * playAreaHeight * 0.7;
-  return edge === 1 ? { x: -40, y } : { x: width + 40, y };
-}
-
-function spawnPlanet(
-  id: number,
-  tiers: PlanetTierConfig[],
-  width: number,
-  playAreaHeight: number,
-  coreX: number,
-  coreY: number
-): TargetState {
-  const tier = tiers[Math.floor(Math.random() * tiers.length)];
-  const { x, y } = spawnEdgePoint(width, playAreaHeight);
-  const baseAngle = Math.atan2(coreY - y, coreX - x);
-  const angle = baseAngle + (Math.random() * 2 - 1) * PLANET_SPAWN_ANGLE_OFFSET;
-  return {
-    id,
-    x,
-    y,
-    dirX: Math.cos(angle),
-    dirY: Math.sin(angle),
-    speed: randomSpeedForTier(tier),
-    size: tier.size,
-    color: tier.color,
-    points: tier.points,
-    spin: Math.random(),
-    hitAt: null,
-    despawnDelay: 0,
-    hitColor: null,
-    explosionVariant: 0,
-    isGolden: ENHANCEMENTS_ENABLED && Math.random() < GOLDEN_STAR_CHANCE,
-  };
-}
-
-// Live planets correct their heading toward the core a little every tick
-// (not snap straight to it) and spin in place; a hit planet freezes until
-// its despawnDelay elapses, then is removed — it doesn't respawn in place
-// the way a lane target used to, since new planets come from the spawner.
-function advancePlanets(targets: TargetState[], dt: number, now: number, coreX: number, coreY: number): TargetState[] {
-  const next: TargetState[] = [];
-  for (const t of targets) {
-    if (t.hitAt !== null) {
-      if (now - t.hitAt <= t.despawnDelay) next.push(t);
-      continue;
-    }
-    const toCoreLen = Math.hypot(coreX - t.x, coreY - t.y) || 1;
-    const desiredDirX = (coreX - t.x) / toCoreLen;
-    const desiredDirY = (coreY - t.y) / toCoreLen;
-    const turn = Math.min(1, PLANET_TURN_RATE * dt);
-    let dirX = t.dirX + (desiredDirX - t.dirX) * turn;
-    let dirY = t.dirY + (desiredDirY - t.dirY) * turn;
-    const dirLen = Math.hypot(dirX, dirY) || 1;
-    dirX /= dirLen;
-    dirY /= dirLen;
-    const nextSpin = (t.spin + dt / (PLANET_SPIN_MS / 1000)) % 1;
-    next.push({ ...t, x: t.x + dirX * t.speed * dt, y: t.y + dirY * t.speed * dt, dirX, dirY, spin: nextSpin });
-  }
-  return next;
-}
-
-// Debris has no steering at all (unlike a planet) — just the momentum it
-// scattered with, until it's shot, reaches the core, outlives
-// DEBRIS_LIFETIME_MS, or drifts off-screen.
-function advanceDebris(debris: DebrisState[], dt: number, now: number, width: number, playAreaHeight: number): DebrisState[] {
-  const next: DebrisState[] = [];
-  for (const d of debris) {
-    if (d.poppedAt !== null) {
-      if (now - d.poppedAt <= DEBRIS_POP_MS) next.push(d);
-      continue;
-    }
-    const nx = d.x + d.vx * dt;
-    const ny = d.y + d.vy * dt;
-    if (now - d.createdAt > DEBRIS_LIFETIME_MS) continue;
-    if (nx < -60 || nx > width + 60 || ny < -60 || ny > playAreaHeight + 60) continue;
-    next.push({ ...d, x: nx, y: ny });
-  }
-  return next;
+function randomRespawnDelay() {
+  return RESPAWN_MIN_MS + Math.random() * (RESPAWN_MAX_MS - RESPAWN_MIN_MS);
 }
 
 // Weighted pick of a pickup kind — ordered list of [chance, kind], tried in
@@ -283,7 +184,70 @@ function getAccuracyTier(accuracy: number) {
   return ACCURACY_TIERS.find((tier) => accuracy >= tier.min) ?? ACCURACY_TIERS[ACCURACY_TIERS.length - 1];
 }
 
+// Shared bounce/respawn/spin physics, used for both the player's targets
+// and the bot's — same rules, just different lane sets.
+function advanceTargets(targets: TargetState[], lanes: LaneConfig[], width: number, dt: number, now: number): TargetState[] {
+  return targets.map((t) => {
+    if (t.hitAt !== null) {
+      if (now - t.hitAt > t.respawnDelay) {
+        const lane = lanes[t.laneIndex];
+        return {
+          ...t,
+          hitAt: null,
+          hitColor: null,
+          x: randomXForLane(lane.size, width),
+          dir: Math.random() < 0.5 ? 1 : -1,
+          speed: randomSpeedForLane(lane),
+          isGolden: ENHANCEMENTS_ENABLED && Math.random() < GOLDEN_STAR_CHANCE,
+        };
+      }
+      return t;
+    }
+    const lane = lanes[t.laneIndex];
+    const min = lane.size / 2;
+    const max = width - lane.size / 2;
+    let nextX = t.x + t.dir * t.speed * dt;
+    let nextDir = t.dir;
+    let nextSpeed = t.speed;
+    let nextBounceId = t.bounceId;
+    if (nextX < min) {
+      nextX = min;
+      nextDir = 1;
+      nextSpeed = randomSpeedForLane(lane);
+      nextBounceId += 1;
+    } else if (nextX > max) {
+      nextX = max;
+      nextDir = -1;
+      nextSpeed = randomSpeedForLane(lane);
+      nextBounceId += 1;
+    }
+    const nextSpin = (t.spin + dt / (STAR_SPIN_MS / 1000)) % 1;
+    return { ...t, x: nextX, dir: nextDir, speed: nextSpeed, spin: nextSpin, bounceId: nextBounceId };
+  });
+}
+
+function makeInitialTargets(lanes: LaneConfig[], width: number): TargetState[] {
+  return lanes.map((lane, laneIndex) => ({
+    id: laneIndex,
+    laneIndex,
+    x: randomXForLane(lane.size, width),
+    dir: Math.random() < 0.5 ? 1 : -1,
+    speed: randomSpeedForLane(lane),
+    spin: Math.random(),
+    hitAt: null,
+    hitColor: null,
+    respawnDelay: 0,
+    bounceId: 0,
+    explosionVariant: 0,
+    isGolden: ENHANCEMENTS_ENABLED && Math.random() < GOLDEN_STAR_CHANCE,
+  }));
+}
+
 interface Props {
+  mode?: GameMode;
+  bot?: BotConfig;
+  /** Match length in ms, picked on the home screen; null means no timer — play until Home. */
+  matchMs?: number | null;
   onExit: (finalScore: number) => void;
   onPlayAgain?: () => void;
   soundOn: boolean;
@@ -293,7 +257,17 @@ interface Props {
   onEarnCurrency: (amount: number) => void;
 }
 
-export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound, ownedUpgrades, onEarnCurrency }: Props) {
+export default function GameScreen({
+  mode = 'solo',
+  bot,
+  matchMs = null,
+  onExit,
+  onPlayAgain,
+  soundOn,
+  onToggleSound,
+  ownedUpgrades,
+  onEarnCurrency,
+}: Props) {
   const ownsDoubleShot = ownedUpgrades.includes('doubleShot');
   const ownsSpreadShot = ownedUpgrades.includes('spreadShot');
   const ownsHomingShot = ownedUpgrades.includes('homingShot');
@@ -320,18 +294,21 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   const insets = useSafeAreaInsets();
   const topBarHeight = TOP_BAR_HEIGHT + insets.top;
   const playAreaHeight = height - topBarHeight;
+  const isVsBot = mode === 'vs' && !!bot;
+  const hasTimer = matchMs !== null;
   const playerY = playAreaHeight - PLAYER_BOTTOM_MARGIN;
 
-  const idCounterRef = useRef(0);
+  const idCounterRef = useRef(LANES.length);
   const playerXRef = useRef(width / 2);
-  const targetsRef = useRef<TargetState[]>([
-    spawnPlanet(++idCounterRef.current, PLANET_TIERS, width, playAreaHeight, width / 2, playerY),
-  ]);
-  const debrisRef = useRef<DebrisState[]>([]);
+  // Bot plays on the same board, same bottom row, same shared targets — it
+  // just has its own cannon position that it moves on its own.
+  const botXRef = useRef(width * 0.5);
+  const botAimJitterRef = useRef(0);
+  const targetsRef = useRef<TargetState[]>(makeInitialTargets(LANES, width));
   const bulletsRef = useRef<BulletState[]>([]);
+  const burstTimeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const popupsRef = useRef<ScorePopupState[]>([]);
   const pickupsRef = useRef<PickupState[]>([]);
-  const spawnTimerRef = useRef(PLANET_SPAWN_BASE_MS);
   // Double-shot / spread-shot "active until" timestamps — a single
   // mechanism covers both sources: owning the upgrade seeds the window at
   // mount (the match-start flat window), and catching the matching pickup
@@ -345,9 +322,9 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   // Second Wind: how many more missed-pickup refunds are left this match —
   // set once at mount from the owned level, only ever counts down.
   const secondWindUsesLeftRef = useRef(secondWindLevel);
-  // The real, authoritative cannon size for this frame — catch radius, core
-  // radius, and clamp math read this, not the animated value below, so
-  // gameplay never depends on where a spring happens to be mid-bounce.
+  // The real, authoritative cannon size for this frame — catch radius and
+  // clamp math read this, not the animated value below, so gameplay never
+  // depends on where a spring happens to be mid-bounce.
   const playerSizeRef = useRef(PLAYER_SIZE);
   const prevGiantActiveRef = useRef(false);
   // A springy pop/shrink for the visual only; playerSizeRef is what gameplay
@@ -365,31 +342,34 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     onEarnCurrency(amount);
   };
   const scoreRef = useRef(0);
-  // Marksmanship: player bullets fired vs. landed (planet or debris), for
-  // the end-of-match accuracy stat and its Stardust bonus. Core Pulse
-  // kills don't count as a "hit" here — no bullet, no shot.
+  // Marksmanship: player bullets fired vs. landed, for the end-of-match
+  // accuracy stat and its Stardust bonus. Bomb-cleared targets don't count
+  // as a "hit" here — no bullet, no shot.
   const shotsFiredRef = useRef(0);
   const shotsHitRef = useRef(0);
   const displayScoreRef = useRef(0);
   const hitsRef = useRef(0);
-  const fragmentsRef = useRef(0);
   // Every pickup kind caught this match, for the end-of-match breakdown —
   // keyed lazily, so a kind never caught just never appears.
   const pickupCountsRef = useRef<Partial<Record<PickupKind, number>>>({});
   const difficultyLevelRef = useRef(0);
   const emittedLevelRef = useRef(0);
-  const effectivePlanetTiersRef = useRef<PlanetTierConfig[]>(PLANET_TIERS);
+  const effectiveLanesRef = useRef<LaneConfig[]>(LANES);
   const lastTsRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const chargesRef = useRef(maxCharges);
 
+  // VS mode: a bot opponent sharing the player's board and clock.
+  const matchStartRef = useRef(Date.now());
   const matchOverRef = useRef(false);
-  const shieldRef = useRef(SHIELD_MAX);
+  const botScoreRef = useRef(0);
+  const botDisplayScoreRef = useRef(0);
+  const botNextShotAtRef = useRef(matchStartRef.current + (bot?.fireIntervalMs ?? 0) * (0.4 + Math.random() * 0.4));
 
   const playerXAnim = useRef(new Animated.Value(playerXRef.current)).current;
   const playerXAnimTargetRef = useRef(playerXRef.current);
+  const [botX, setBotX] = useState(botXRef.current);
   const [targets, setTargets] = useState(targetsRef.current);
-  const [debris, setDebris] = useState(debrisRef.current);
   const [bullets, setBullets] = useState(bulletsRef.current);
   const [popups, setPopups] = useState(popupsRef.current);
   const [pickups, setPickups] = useState(pickupsRef.current);
@@ -399,11 +379,12 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   const [giantMsLeft, setGiantMsLeft] = useState(0);
   const [homingMsLeft, setHomingMsLeft] = useState(0);
   const [displayScore, setDisplayScore] = useState(0);
-  const [shield, setShield] = useState(SHIELD_MAX);
+  const [botDisplayScore, setBotDisplayScore] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(hasTimer ? Math.ceil(matchMs! / 1000) : 0);
   const [matchOver, setMatchOver] = useState(false);
   // Result buttons stay unpressable for a beat after the panel appears, so a
-  // tap aimed at the fire area a moment before match-end can't land on
-  // PLAY AGAIN/HOME by accident.
+  // tap aimed at a target/the fire area a moment before match-end can't land
+  // on PLAY AGAIN/HOME by accident.
   const [resultButtonsReady, setResultButtonsReady] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [charges, setCharges] = useState(chargesRef.current);
@@ -411,6 +392,9 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   const levelUpIdRef = useRef(0);
   const [powerUpEvent, setPowerUpEvent] = useState<{ id: number; kind: PowerUpKind } | null>(null);
   const powerUpIdRef = useRef(0);
+  const [countdownEvent, setCountdownEvent] = useState<CountdownEvent | null>(null);
+  const countdownIdRef = useRef(0);
+  const lastCountdownSecRef = useRef<number | null>(null);
   const scorePulse = useRef(new Animated.Value(1)).current;
   const triggerScorePulse = () => {
     scorePulse.setValue(1);
@@ -420,8 +404,9 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     ]).start();
   };
 
-  // Fire feel: a quick recoil kick + muzzle flash on every shot, so firing
-  // reads as a punch instead of just a bullet silently appearing.
+  // Fire feel: a quick recoil kick + muzzle flash on every shot, and a brief
+  // screen shake on a solid hit — so shooting reads as a punch, not just a
+  // bullet silently appearing.
   const recoilKick = useRef(new Animated.Value(0)).current;
   const triggerRecoil = () => {
     recoilKick.setValue(0);
@@ -435,9 +420,6 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     muzzleFlash.setValue(1);
     Animated.timing(muzzleFlash, { toValue: 0, duration: MUZZLE_FLASH_MS, useNativeDriver: true }).start();
   };
-  // A solid planet hit nudges the whole play area sideways and snaps back —
-  // tiny, but it's what makes a kill read as an impact rather than a target
-  // just silently disappearing.
   const hitShake = useRef(new Animated.Value(0)).current;
   const triggerHitShake = () => {
     hitShake.setValue(0);
@@ -448,6 +430,17 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     ]).start();
   };
 
+  // Match result mood: a bouncy, bright entrance for a win, a slow heavy
+  // settle for a loss, a plain fade for a draw — same card, different feel.
+  const outcome: 'win' | 'lose' | 'draw' =
+    scoreRef.current > botScoreRef.current ? 'win' : scoreRef.current < botScoreRef.current ? 'lose' : 'draw';
+  const resultEnter = useRef(new Animated.Value(0)).current;
+  const winBurst = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    return () => {
+      burstTimeoutsRef.current.forEach(clearTimeout);
+    };
+  }, []);
   useEffect(() => {
     if (!matchOver) {
       setResultButtonsReady(false);
@@ -455,13 +448,42 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     }
     setResultButtonsReady(false);
     const readyTimer = setTimeout(() => setResultButtonsReady(true), RESULT_BUTTONS_DELAY_MS);
-    playLose();
+    if (!isVsBot) {
+      playTimeUp();
+    } else if (outcome === 'win') {
+      playWin();
+      if (ENHANCEMENTS_ENABLED) earnCurrency(WIN_CURRENCY_REWARD);
+    } else if (outcome === 'lose') {
+      playLose();
+    } else {
+      playDraw();
+    }
     // Marksmanship bonus: scales with accuracy, but landing even one shot
     // always earns at least the floor — accuracy is never a cliff down to
     // zero.
     if (ENHANCEMENTS_ENABLED && shotsHitRef.current > 0) {
       const accuracy = shotsHitRef.current / shotsFiredRef.current;
       earnCurrency(Math.max(ACCURACY_BONUS_MIN, Math.round(accuracy * ACCURACY_BONUS_MAX)));
+    }
+    resultEnter.setValue(0);
+    if (outcome === 'win') {
+      Animated.spring(resultEnter, { toValue: 1, friction: 5, tension: 110, useNativeDriver: true }).start();
+      winBurst.setValue(0);
+      Animated.timing(winBurst, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    } else if (outcome === 'lose') {
+      Animated.timing(resultEnter, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(resultEnter, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
     return () => clearTimeout(readyTimer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -471,10 +493,10 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   // loop; difficultyLevel state only mirrors it for rendering, so this must
   // not write back into the ref (it would clobber progress made in-between
   // this effect running and the last render).
-  const effectivePlanetTiers = useMemo(() => getEffectivePlanetTiers(difficultyLevel), [difficultyLevel]);
+  const effectiveLanes = useMemo(() => getEffectiveLanes(difficultyLevel), [difficultyLevel]);
   useEffect(() => {
-    effectivePlanetTiersRef.current = effectivePlanetTiers;
-  }, [effectivePlanetTiers]);
+    effectiveLanesRef.current = effectiveLanes;
+  }, [effectiveLanes]);
 
   // Keep the player within bounds if the window resizes.
   useEffect(() => {
@@ -500,60 +522,67 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
       const dt = Math.min((ts - last) / 1000, 0.05); // clamp dt for tab-switch pauses
       lastTsRef.current = ts;
 
+      // Targets: bounce within lane bounds, or wait to respawn after a hit.
       const now = Date.now();
-      const tiers = effectivePlanetTiersRef.current;
-      const coreX = playerXRef.current;
-      const coreY = playerY;
+      const lanes = effectiveLanesRef.current;
 
-      // Also used below by the homing-bullet steer, which stays
-      // live-computed even when frozen.
+      // Match timer (solo or vs) — once it hits zero, the whole scene
+      // freezes (see the matchOverRef guard below), so the result panel
+      // sits over a still frame, not a moving one.
+      let timeLeftMs = Infinity;
+      if (hasTimer) {
+        timeLeftMs = Math.max(0, matchMs! - (now - matchStartRef.current));
+        if (timeLeftMs <= 0 && !matchOverRef.current) {
+          matchOverRef.current = true;
+          setMatchOver(true);
+        }
+        const sec = Math.ceil(timeLeftMs / 1000);
+        setTimeLeft(sec);
+        if (
+          sec !== lastCountdownSecRef.current &&
+          COUNTDOWN_MARKS.includes(sec) &&
+          !matchOverRef.current
+        ) {
+          lastCountdownSecRef.current = sec;
+          countdownIdRef.current += 1;
+          setCountdownEvent({ id: countdownIdRef.current, value: sec });
+        }
+      }
+      // Also used below by the bot's shot-lead prediction, which stays
+      // live-computed even when frozen (it just never fires a shot then).
       const bulletSpeed = getEffectiveBulletSpeed(difficultyLevelRef.current, bulletSpeedLevel);
-
       // Once the match is over, the scene freezes exactly as it was —
       // nothing keeps moving behind the result panel, so there's nothing
       // left for a stray tap to land on.
       if (!matchOverRef.current) {
-        targetsRef.current = advancePlanets(targetsRef.current, dt, now, coreX, coreY);
-        debrisRef.current = advanceDebris(debrisRef.current, dt, now, width, playAreaHeight);
+        targetsRef.current = advanceTargets(targetsRef.current, lanes, width, dt, now);
 
-        // Spawner: a new planet every getEffectiveSpawnMs(level), capped at
-        // MAX_LIVE_PLANETS concurrent live ones so the board never floods.
-        spawnTimerRef.current -= dt * 1000;
-        if (
-          spawnTimerRef.current <= 0 &&
-          targetsRef.current.filter((t) => t.hitAt === null).length < MAX_LIVE_PLANETS
-        ) {
-          targetsRef.current = [
-            ...targetsRef.current,
-            spawnPlanet(++idCounterRef.current, tiers, width, playAreaHeight, coreX, coreY),
-          ];
-          spawnTimerRef.current = getEffectiveSpawnMs(difficultyLevelRef.current);
-        }
-
-        // Bullets: move along their own direction, dropped once off-screen.
-        // Speed ramps with level too. A homing bullet steers its direction
-        // toward the nearest live planet each tick, before the position
-        // update below uses it — a gradual turn (HOMING_TURN_RATE), not an
-        // instant snap.
+        // Bullets: move up, drop once off-screen. Speed ramps with level too.
+        // A homing bullet steers its direction toward the nearest live target
+        // ahead of it each tick, before the position update below uses it —
+        // a gradual turn (HOMING_TURN_RATE), not an instant snap.
         bulletsRef.current = bulletsRef.current
           .map((b) => {
             let dirX = b.dirX;
             let dirY = b.dirY;
-            if (b.homing) {
+            if (b.homing && b.owner === 'player') {
               let nearest: TargetState | null = null;
               let nearestDist = Infinity;
               for (const t of targetsRef.current) {
                 if (t.hitAt !== null) continue;
-                const dist = Math.hypot(t.x - b.x, t.y - b.y);
+                const laneY = lanes[t.laneIndex].y * playAreaHeight;
+                if (laneY >= b.y) continue;
+                const dist = Math.hypot(t.x - b.x, laneY - b.y);
                 if (dist < nearestDist) {
                   nearestDist = dist;
                   nearest = t;
                 }
               }
               if (nearest) {
-                const toTargetLen = Math.hypot(nearest.x - b.x, nearest.y - b.y) || 1;
+                const laneY = lanes[nearest.laneIndex].y * playAreaHeight;
+                const toTargetLen = Math.hypot(nearest.x - b.x, laneY - b.y) || 1;
                 const desiredDirX = (nearest.x - b.x) / toTargetLen;
-                const desiredDirY = (nearest.y - b.y) / toTargetLen;
+                const desiredDirY = (laneY - b.y) / toTargetLen;
                 const turn = Math.min(1, HOMING_TURN_RATE * dt);
                 dirX += (desiredDirX - dirX) * turn;
                 dirY += (desiredDirY - dirY) * turn;
@@ -564,140 +593,78 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
             }
             return { ...b, dirX, dirY, x: b.x + dirX * bulletSpeed * dt, y: b.y + dirY * bulletSpeed * dt };
           })
-          .filter((b) => b.y > -20 && b.y < playAreaHeight + 20 && b.x > -20 && b.x < width + 20);
+          .filter((b) => b.y > -20 && b.x > -20 && b.x < width + 20);
 
-        // Collisions: a live bullet entering a planet's or a debris chunk's
-        // radius (plus a little forgiveness). Planets are checked first —
-        // a bullet that hits one shatters it into debris and doesn't also
-        // test against debris this tick.
+        // Collisions: a live bullet (either owner's) entering a lane's hit
+        // band near a live target. Both player and bot shoot the same shared
+        // targets, so whoever's bullet gets there first scores it.
         const remainingBullets: BulletState[] = [];
         for (const b of bulletsRef.current) {
           let hitSomething = false;
           for (const t of targetsRef.current) {
             if (t.hitAt !== null) continue;
-            const hitR = t.size / 2 + BULLET_HIT_PAD;
-            if (Math.hypot(b.x - t.x, b.y - t.y) <= hitR) {
+            const lane = lanes[t.laneIndex];
+            const laneY = lane.y * playAreaHeight;
+            if (
+              Math.abs(b.y - laneY) <= HIT_BAND &&
+              Math.abs(b.x - t.x) <= lane.size / 2
+            ) {
               t.hitAt = now;
-              t.despawnDelay = randomDespawnDelay();
-              t.hitColor = COLORS.blue;
+              t.respawnDelay = randomRespawnDelay();
+              t.hitColor = b.owner === 'player' ? COLORS.blue : bot?.color ?? COLORS.red;
               t.explosionVariant = Math.floor(Math.random() * 3);
               playHit(t.explosionVariant);
-              triggerHitShake();
               if (t.isGolden) playGolden();
-              const gain = t.isGolden ? t.points * GOLDEN_SCORE_MULTIPLIER : t.points;
-              scoreRef.current += gain;
-              hitsRef.current += 1;
-              shotsHitRef.current += 1;
-              popupsRef.current = [
-                ...popupsRef.current,
-                { id: ++idCounterRef.current, x: t.x, y: t.y, value: gain, color: t.isGolden ? COLORS.gold : COLORS.blue, createdAt: now },
-              ];
-              triggerScorePulse();
-              // A broken planet sometimes drops something to catch — a flat
-              // score bonus, a temporary fire-pattern or pull-in power-up, a
-              // screen-clearing Core Pulse, or Stardust.
-              if (ENHANCEMENTS_ENABLED && Math.random() < effectivePickupChance) {
-                const kind = rollPickupKind();
-                const value =
-                  kind === 'score'
-                    ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
-                    : kind === 'currency'
-                      ? Math.round(PICKUP_CURRENCY_MIN + Math.random() * (PICKUP_CURRENCY_MAX - PICKUP_CURRENCY_MIN))
-                      : 0;
-                pickupsRef.current = [...pickupsRef.current, { id: ++idCounterRef.current, x: t.x, y: t.y, kind, value }];
-              }
-              // Shatter into 2-4 debris chunks, scattering on their own
-              // momentum — no steering, unlike the planet they came from.
-              const debrisCount = DEBRIS_COUNT_MIN + Math.floor(Math.random() * (DEBRIS_COUNT_MAX - DEBRIS_COUNT_MIN + 1));
-              for (let i = 0; i < debrisCount; i++) {
-                const angle = Math.random() * Math.PI * 2;
-                const speed = DEBRIS_SPEED_MIN + Math.random() * (DEBRIS_SPEED_MAX - DEBRIS_SPEED_MIN);
-                debrisRef.current.push({
-                  id: ++idCounterRef.current,
-                  x: t.x,
-                  y: t.y,
-                  vx: Math.cos(angle) * speed,
-                  vy: Math.sin(angle) * speed,
-                  size: DEBRIS_SIZE,
-                  color: t.color,
-                  createdAt: now,
-                  poppedAt: null,
-                });
+              const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
+              if (b.owner === 'player') {
+                scoreRef.current += gain;
+                hitsRef.current += 1;
+                shotsHitRef.current += 1;
+                triggerHitShake();
+                popupsRef.current = [
+                  ...popupsRef.current,
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: t.isGolden ? COLORS.gold : COLORS.blue, createdAt: now },
+                ];
+                triggerScorePulse();
+                // A broken target sometimes drops something to catch — a
+                // flat score bonus, a temporary fire-pattern or pull-in
+                // power-up, a screen-clearing bomb, or Stardust.
+                if (ENHANCEMENTS_ENABLED && Math.random() < effectivePickupChance) {
+                  const kind = rollPickupKind();
+                  const value =
+                    kind === 'score'
+                      ? Math.round(PICKUP_SCORE_MIN + Math.random() * (PICKUP_SCORE_MAX - PICKUP_SCORE_MIN))
+                      : kind === 'currency'
+                        ? Math.round(PICKUP_CURRENCY_MIN + Math.random() * (PICKUP_CURRENCY_MAX - PICKUP_CURRENCY_MIN))
+                        : 0;
+                  pickupsRef.current = [...pickupsRef.current, { id: ++idCounterRef.current, x: t.x, y: laneY, kind, value }];
+                }
+              } else if (bot) {
+                botScoreRef.current += gain;
+                popupsRef.current = [
+                  ...popupsRef.current,
+                  { id: ++idCounterRef.current, x: t.x, y: laneY, value: gain, color: bot.color, createdAt: now },
+                ];
               }
               hitSomething = true;
-              // Piercing Rounds: a bullet with hits left survives, flying on
-              // to its next hit instead of being destroyed by this one.
-              const pierceLeft = b.pierce ?? 0;
+              // Piercing Rounds: a player bullet with hits left survives,
+              // continuing on to the next target behind it in the lane
+              // instead of being destroyed by this hit.
+              const pierceLeft = b.owner === 'player' ? (b.pierce ?? 0) : 0;
               if (pierceLeft > 0) {
                 remainingBullets.push({ ...b, pierce: pierceLeft - 1 });
               }
               break;
             }
           }
-          if (!hitSomething) {
-            for (const d of debrisRef.current) {
-              if (d.poppedAt !== null) continue;
-              const hitR = d.size / 2 + BULLET_HIT_PAD;
-              if (Math.hypot(b.x - d.x, b.y - d.y) <= hitR) {
-                d.poppedAt = now;
-                playHit(0);
-                scoreRef.current += DEBRIS_POINTS;
-                fragmentsRef.current += 1;
-                shotsHitRef.current += 1;
-                popupsRef.current = [
-                  ...popupsRef.current,
-                  { id: ++idCounterRef.current, x: d.x, y: d.y, value: DEBRIS_POINTS, color: COLORS.blue, createdAt: now },
-                ];
-                triggerScorePulse();
-                hitSomething = true;
-                const pierceLeft = b.pierce ?? 0;
-                if (pierceLeft > 0) {
-                  remainingBullets.push({ ...b, pierce: pierceLeft - 1 });
-                }
-                break;
-              }
-            }
-          }
           if (!hitSomething) remainingBullets.push(b);
         }
         bulletsRef.current = remainingBullets;
-
-        // The core is the player's own cannon — anything live that gets
-        // within its radius (plus the object's own) costs one shield point
-        // and is removed. Shield hitting 0 ends the match.
-        const coreTouchR = playerSizeRef.current / 2 + CORE_HIT_PAD;
-        const survivingPlanets: TargetState[] = [];
-        for (const t of targetsRef.current) {
-          if (t.hitAt === null && Math.hypot(t.x - coreX, t.y - coreY) <= coreTouchR + t.size / 2) {
-            shieldRef.current = Math.max(0, shieldRef.current - 1);
-            playBounce();
-            continue;
-          }
-          survivingPlanets.push(t);
-        }
-        targetsRef.current = survivingPlanets;
-
-        const survivingDebris: DebrisState[] = [];
-        for (const d of debrisRef.current) {
-          if (d.poppedAt === null && Math.hypot(d.x - coreX, d.y - coreY) <= coreTouchR + d.size / 2) {
-            shieldRef.current = Math.max(0, shieldRef.current - 1);
-            playBounce();
-            continue;
-          }
-          survivingDebris.push(d);
-        }
-        debrisRef.current = survivingDebris;
-
-        if (shieldRef.current <= 0 && !matchOverRef.current) {
-          matchOverRef.current = true;
-          setMatchOver(true);
-        }
-        setShield(shieldRef.current);
       }
 
       if (!matchOverRef.current) {
         // Giant: while active, the cannon itself is bigger — widening its
-        // own catch/core radius, not pulling pickups in like Magnet does.
+        // own catch radius, not pulling pickups in like Magnet does.
         // playerSizeRef is the real gameplay size; the spring below is just
         // the visual pop.
         const giantActive = giantUntilRef.current > now;
@@ -732,6 +699,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
             nextX = p.x + Math.sign(dx) * step;
           }
           const caught =
+            !matchOverRef.current &&
             Math.abs(nextY - playerY) <= playerSize / 2 + PICKUP_SIZE / 2 &&
             Math.abs(nextX - playerXRef.current) <= playerSize / 2 + PICKUP_SIZE / 2;
           if (caught) {
@@ -773,40 +741,32 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
               powerUpIdRef.current += 1;
               setPowerUpEvent({ id: powerUpIdRef.current, kind: 'homing' });
             } else {
-              // Core Pulse: every live planet and debris chunk goes down at
-              // once, same scoring as a direct hit — just no chained pickup
-              // drops or further debris, so one pulse can't cascade into
-              // another, and nothing it clears can go on to cost a shield.
+              // Bomb: every live target goes down at once, same scoring and
+              // explosion as a direct hit — just no chained pickup drops,
+              // so one bomb can't cascade into another.
               for (const t of targetsRef.current) {
                 if (t.hitAt !== null) continue;
+                const lane = lanes[t.laneIndex];
                 t.hitAt = now;
-                t.despawnDelay = randomDespawnDelay();
+                t.respawnDelay = randomRespawnDelay();
                 t.hitColor = COLORS.blue;
                 t.explosionVariant = Math.floor(Math.random() * 3);
-                const gain = t.isGolden ? t.points * GOLDEN_SCORE_MULTIPLIER : t.points;
-                scoreRef.current += gain;
-                hitsRef.current += 1;
-                popupsRef.current = [
-                  ...popupsRef.current,
-                  {
-                    id: ++idCounterRef.current,
-                    x: t.x,
-                    y: t.y,
-                    value: gain,
-                    color: t.isGolden ? COLORS.gold : COLORS.blue,
-                    createdAt: now,
-                  },
-                ];
-              }
-              for (const d of debrisRef.current) {
-                if (d.poppedAt !== null) continue;
-                d.poppedAt = now;
-                scoreRef.current += DEBRIS_POINTS;
-                fragmentsRef.current += 1;
-                popupsRef.current = [
-                  ...popupsRef.current,
-                  { id: ++idCounterRef.current, x: d.x, y: d.y, value: DEBRIS_POINTS, color: COLORS.blue, createdAt: now },
-                ];
+                if (!matchOverRef.current) {
+                  const gain = t.isGolden ? lane.points * GOLDEN_SCORE_MULTIPLIER : lane.points;
+                  scoreRef.current += gain;
+                  hitsRef.current += 1;
+                  popupsRef.current = [
+                    ...popupsRef.current,
+                    {
+                      id: ++idCounterRef.current,
+                      x: t.x,
+                      y: lane.y * playAreaHeight,
+                      value: gain,
+                      color: t.isGolden ? COLORS.gold : COLORS.blue,
+                      createdAt: now,
+                    },
+                  ];
+                }
               }
               triggerScorePulse();
               powerUpIdRef.current += 1;
@@ -819,7 +779,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
             // Second Wind: a pickup that falls off uncaught refunds a
             // small flat amount instead of just being gone, up to the
             // owned number of uses for this match.
-            if (secondWindUsesLeftRef.current > 0) {
+            if (!matchOverRef.current && secondWindUsesLeftRef.current > 0) {
               secondWindUsesLeftRef.current -= 1;
               earnCurrency(SECOND_WIND_REFUND);
               popupsRef.current = [
@@ -841,8 +801,8 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
         pickupsRef.current = nextPickups;
       }
 
-      // Difficulty climbs with total planets destroyed and never drops — a
-      // miss just doesn't add to it, so a long survival run keeps climbing.
+      // Difficulty climbs with total hits landed and never drops — a miss
+      // just doesn't add to it, so a long run keeps climbing.
       const newLevel = Math.min(
         DIFFICULTY_MAX_LEVEL,
         Math.floor(hitsRef.current / DIFFICULTY_STEP_HITS)
@@ -874,10 +834,64 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
       displayScoreRef.current =
         Math.abs(scoreDiff) < 0.5 ? scoreRef.current : displayScoreRef.current + scoreDiff * Math.min(1, dt * 8);
 
+      // Bot opponent: physically tracks the nearest live target and fires
+      // at its own real cannon position on the same shared board — misses
+      // happen because its aim or reflexes are worse, not a coin flip.
+      if (isVsBot && bot && !matchOverRef.current) {
+        botAimJitterRef.current = Math.max(
+          -bot.aimJitter,
+          Math.min(bot.aimJitter, botAimJitterRef.current + (Math.random() - 0.5) * BOT_JITTER_WALK_SPEED * dt)
+        );
+
+        const liveTargets = targetsRef.current.filter((t) => t.hitAt === null);
+        if (liveTargets.length) {
+          let nearest = liveTargets[0];
+          let nearestDist = Math.abs(nearest.x - botXRef.current);
+          for (const t of liveTargets) {
+            const d = Math.abs(t.x - botXRef.current);
+            if (d < nearestDist) {
+              nearest = t;
+              nearestDist = d;
+            }
+          }
+          // Lead the shot: aim at where the target will be by the time a
+          // bullet fired now would reach its lane, not where it is right
+          // now — otherwise every shot trails a moving target and misses.
+          const nearestLane = lanes[nearest.laneIndex];
+          const travelDist = Math.max(0, playerY - PLAYER_SIZE / 2 - nearestLane.y * playAreaHeight);
+          const travelTime = travelDist / bulletSpeed;
+          const predictedX = nearest.x + nearest.dir * nearest.speed * travelTime;
+          const desiredX = Math.min(
+            Math.max(predictedX + botAimJitterRef.current, PLAYER_SIZE / 2),
+            width - PLAYER_SIZE / 2
+          );
+          const dx = desiredX - botXRef.current;
+          const step = Math.min(Math.abs(dx), bot.trackSpeed * dt);
+          botXRef.current += Math.sign(dx) * step;
+        }
+        setBotX(botXRef.current);
+
+        if (
+          now >= botNextShotAtRef.current &&
+          bulletsRef.current.filter((b) => b.owner === 'bot').length < MAX_BULLETS
+        ) {
+          bulletsRef.current = [
+            ...bulletsRef.current,
+            { id: ++idCounterRef.current, x: botXRef.current, y: playerY - PLAYER_SIZE / 2, dirX: 0, dirY: -1, owner: 'bot', color: bot.color },
+          ];
+          playShoot();
+          botNextShotAtRef.current = now + bot.fireIntervalMs * (0.75 + Math.random() * 0.5);
+        }
+
+        const botDiff = botScoreRef.current - botDisplayScoreRef.current;
+        botDisplayScoreRef.current =
+          Math.abs(botDiff) < 0.5 ? botScoreRef.current : botDisplayScoreRef.current + botDiff * Math.min(1, dt * 8);
+        setBotDisplayScore(Math.round(botDisplayScoreRef.current));
+      }
+
       popupsRef.current = popupsRef.current.filter((p) => now - p.createdAt < SCORE_POPUP_MS);
 
       setTargets(targetsRef.current);
-      setDebris(debrisRef.current);
       setBullets(bulletsRef.current);
       setPopups(popupsRef.current);
       setPickups(pickupsRef.current);
@@ -899,7 +913,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
   }, [width, playAreaHeight]);
 
   const spawnShots = (shots: { dx: number; dirX: number; dirY: number }[]) => {
-    if (bulletsRef.current.length >= MAX_BULLETS) return;
+    if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     const pierce = piercingLevel > 0 ? PIERCE_EXTRA_HITS[piercingLevel - 1] : 0;
     const homing = ENHANCEMENTS_ENABLED && homingUntilRef.current > Date.now();
     bulletsRef.current = [
@@ -910,6 +924,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
         y: playerY - playerSizeRef.current / 2,
         dirX: s.dirX,
         dirY: s.dirY,
+        owner: 'player' as const,
         color: COLORS.blue,
         pierce,
         homing,
@@ -923,7 +938,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
 
   const fire = () => {
     if (chargesRef.current < 1) return;
-    if (bulletsRef.current.length >= MAX_BULLETS) return;
+    if (bulletsRef.current.filter((b) => b.owner === 'player').length >= MAX_BULLETS) return;
     chargesRef.current -= 1;
     setCharges(chargesRef.current);
     const now = Date.now();
@@ -942,18 +957,23 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     if (hasSpread && hasDouble) {
       // A quick 3-pulse ripple — straight pair, then the two angled lanes a
       // beat later each side — instead of all 6 bullets leaving at once.
-      shotsFiredRef.current += 6;
+      shotsFiredRef.current += matchOverRef.current ? 0 : 6;
       spawnShots(pair(lanes.center));
-      setTimeout(() => spawnShots(pair(lanes.left)), COMBO_STAGGER_MS);
-      setTimeout(() => spawnShots(pair(lanes.right)), COMBO_STAGGER_MS * 2);
+      const t1 = setTimeout(() => {
+        if (!matchOverRef.current) spawnShots(pair(lanes.left));
+      }, COMBO_STAGGER_MS);
+      const t2 = setTimeout(() => {
+        if (!matchOverRef.current) spawnShots(pair(lanes.right));
+      }, COMBO_STAGGER_MS * 2);
+      burstTimeoutsRef.current.push(t1, t2);
     } else if (hasSpread) {
-      shotsFiredRef.current += 3;
+      shotsFiredRef.current += matchOverRef.current ? 0 : 3;
       spawnShots([{ dx: 0, ...lanes.left }, { dx: 0, ...lanes.center }, { dx: 0, ...lanes.right }]);
     } else if (hasDouble) {
-      shotsFiredRef.current += 2;
+      shotsFiredRef.current += matchOverRef.current ? 0 : 2;
       spawnShots(pair(lanes.center));
     } else {
-      shotsFiredRef.current += 1;
+      shotsFiredRef.current += matchOverRef.current ? 0 : 1;
       spawnShots([{ dx: 0, ...lanes.center }]);
     }
   };
@@ -1009,7 +1029,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     PanResponder.create({
       // Once the match is over the result panel owns input exclusively —
       // refusing to even become the responder here means a gesture that
-      // was already in progress when the shield hit zero can't sneak a
+      // was already in progress when the clock hit zero can't sneak a
       // fire/move through on release after the panel has mounted on top.
       onStartShouldSetPanResponder: () => !matchOverRef.current,
       onMoveShouldSetPanResponder: () => !matchOverRef.current,
@@ -1054,6 +1074,11 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
     })
   ).current;
 
+  const laneYs = useMemo(
+    () => LANES.map((lane) => lane.y * playAreaHeight),
+    [playAreaHeight]
+  );
+
   return (
     <View style={styles.container}>
       <View style={[styles.topBarWrap, { height: topBarHeight, paddingTop: insets.top }]}>
@@ -1077,12 +1102,18 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
             <Text style={styles.homeButtonText}>{soundOn ? '🔊' : '🔇'}</Text>
           </PressableScale>
           <View style={styles.statsRow}>
-            <Text style={styles.scoreLabel}>SCORE</Text>
+            <Text style={styles.scoreLabel}>{isVsBot ? 'YOU' : 'SCORE'}</Text>
             <Animated.Text style={[styles.scoreText, { transform: [{ scale: scorePulse }] }]}>
               {displayScore}
             </Animated.Text>
-            <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
-            <ShieldMeter shield={shield} />
+            {hasTimer && <Text style={styles.levelLabel}>⏱ {timeLeft}s</Text>}
+            {isVsBot && bot ? (
+              <Text style={[styles.levelLabel, { color: bot.color }]}>
+                {bot.name.toUpperCase()} {botDisplayScore}
+              </Text>
+            ) : (
+              <Text style={styles.levelLabel}>LEVEL {difficultyLevel + 1}</Text>
+            )}
             <View style={styles.chargeRow}>
               {Array.from({ length: maxCharges }, (_, i) => (
                 <View
@@ -1154,11 +1185,8 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
               )}
             </View>
           )}
-          {targets.map((t) => (
-            <Target key={t.id} target={t} />
-          ))}
-          {debris.map((d) => (
-            <Debris key={d.id} debris={d} />
+          {targets.map((t, i) => (
+            <Target key={t.id} target={t} lane={effectiveLanes[t.laneIndex]} laneY={laneYs[i]} />
           ))}
           {bullets.map((b) => (
             <Bullet key={b.id} bullet={b} />
@@ -1169,6 +1197,7 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
           {popups.map((p) => (
             <ScorePopup key={p.id} popup={p} />
           ))}
+          {isVsBot && bot && <Player x={botX} y={playerY} color={bot.color} />}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -1183,12 +1212,13 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
           <Player x={playerXAnim} y={playerY} scale={playerGrowScale} kick={recoilKick} />
           <LevelUpBanner event={levelUpEvent} />
           <PowerUpBanner event={powerUpEvent} />
+          <CountdownPulse event={countdownEvent} />
         </Animated.View>
 
-        {matchOver && (
+        {!isVsBot && matchOver && (
           <View style={styles.resultOverlay}>
             <View style={styles.resultCard}>
-              <Text style={styles.resultTitle}>CORE BREACHED</Text>
+              <Text style={styles.resultTitle}>TIME'S UP</Text>
               <View style={styles.resultScores}>
                 <View style={styles.resultScoreBlock}>
                   <Text style={styles.resultLabel}>SCORE</Text>
@@ -1201,7 +1231,6 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
                   shotsFired={shotsFiredRef.current}
                   tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
                   targetsHit={hitsRef.current}
-                  fragmentsHit={fragmentsRef.current}
                   currencyEarned={matchCurrencyEarned}
                   pickupCounts={pickupCountsRef.current}
                 />
@@ -1229,6 +1258,110 @@ export default function GameScreen({ onExit, onPlayAgain, soundOn, onToggleSound
                 </PressableScale>
               </View>
             </View>
+          </View>
+        )}
+
+        {isVsBot && matchOver && bot && (
+          <View
+            style={[
+              styles.resultOverlay,
+              outcome === 'lose' && styles.resultOverlayLose,
+            ]}
+          >
+            {outcome === 'win' && (
+              <Animated.View
+                pointerEvents="none"
+                style={[
+                  styles.winBurst,
+                  {
+                    opacity: winBurst.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 0.5, 0] }),
+                    transform: [
+                      { scale: winBurst.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.6] }) },
+                    ],
+                  },
+                ]}
+              />
+            )}
+            <Animated.View
+              style={[
+                styles.resultCard,
+                outcome === 'win' && styles.resultCardWin,
+                outcome === 'lose' && styles.resultCardLose,
+                {
+                  opacity: resultEnter,
+                  transform: [
+                    { scale: resultEnter.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) },
+                    {
+                      translateY: resultEnter.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: outcome === 'lose' ? [-16, 0] : [18, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.resultTitle,
+                  outcome === 'win' && styles.resultTitleWin,
+                  outcome === 'lose' && styles.resultTitleLose,
+                ]}
+              >
+                {outcome === 'win' ? 'YOU WIN!' : outcome === 'lose' ? 'YOU LOSE' : 'DRAW'}
+              </Text>
+              <View style={styles.resultScores}>
+                <View style={styles.resultScoreBlock}>
+                  <Text style={styles.resultLabel}>YOU</Text>
+                  <Text
+                    style={[
+                      styles.resultValue,
+                      outcome === 'lose' && { opacity: 0.7, textShadowColor: 'transparent' },
+                    ]}
+                  >
+                    {scoreRef.current}
+                  </Text>
+                </View>
+                <View style={styles.resultScoreBlock}>
+                  <Text style={styles.resultLabel}>{bot.name.toUpperCase()}</Text>
+                  <Text style={[styles.resultValue, { color: bot.color, textShadowColor: bot.color }]}>
+                    {botScoreRef.current}
+                  </Text>
+                </View>
+              </View>
+              {ENHANCEMENTS_ENABLED && (
+                <ResultStats
+                  shotsHit={shotsHitRef.current}
+                  shotsFired={shotsFiredRef.current}
+                  tier={getAccuracyTier(shotsFiredRef.current > 0 ? shotsHitRef.current / shotsFiredRef.current : 0)}
+                  targetsHit={hitsRef.current}
+                  currencyEarned={matchCurrencyEarned}
+                  pickupCounts={pickupCountsRef.current}
+                />
+              )}
+              <View style={styles.resultButtons}>
+                <PressableScale
+                  onPress={() => {
+                    if (!resultButtonsReady) return;
+                    playUiTap();
+                    onPlayAgain?.();
+                  }}
+                  style={[styles.resultButtonPrimary, !resultButtonsReady && styles.resultButtonWaiting]}
+                >
+                  <Text style={styles.resultButtonText}>PLAY AGAIN</Text>
+                </PressableScale>
+                <PressableScale
+                  onPress={() => {
+                    if (!resultButtonsReady) return;
+                    playUiTap();
+                    onExit(scoreRef.current);
+                  }}
+                  style={[styles.resultButtonSecondary, !resultButtonsReady && styles.resultButtonWaiting]}
+                >
+                  <Text style={styles.resultButtonText}>HOME</Text>
+                </PressableScale>
+              </View>
+            </Animated.View>
           </View>
         )}
       </View>
@@ -1376,6 +1509,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  resultOverlayLose: {
+    backgroundColor: 'rgba(5,3,10,0.92)',
+  },
+  winBurst: {
+    position: 'absolute',
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 1,
+    shadowRadius: 80,
+    shadowOffset: { width: 0, height: 0 },
+  },
   resultCard: {
     width: 280,
     paddingVertical: 28,
@@ -1386,6 +1533,17 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     alignItems: 'center',
   },
+  resultCardWin: {
+    borderColor: COLORS.gold,
+    shadowColor: COLORS.gold,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  resultCardLose: {
+    borderColor: 'rgba(122,104,120,0.4)',
+    backgroundColor: 'rgba(12,9,18,0.75)',
+  },
   resultTitle: {
     color: COLORS.textPrimary,
     fontSize: 26,
@@ -1394,6 +1552,15 @@ const styles = StyleSheet.create({
     textShadowColor: COLORS.cyan,
     textShadowRadius: 18,
     textShadowOffset: { width: 0, height: 0 },
+  },
+  resultTitleWin: {
+    textShadowColor: COLORS.gold,
+    textShadowRadius: 26,
+  },
+  resultTitleLose: {
+    color: COLORS.textSecondary,
+    textShadowColor: COLORS.sad,
+    textShadowRadius: 10,
   },
   resultScores: {
     flexDirection: 'row',
