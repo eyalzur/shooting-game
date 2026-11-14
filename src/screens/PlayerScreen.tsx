@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { User } from 'firebase/auth';
 import Player from '../components/Player';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
@@ -12,6 +13,10 @@ interface Props {
   onOpenShop: () => void;
   onResetInventory: () => void;
   onBack: () => void;
+  firebaseConfigured: boolean;
+  user: User | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }
 
 const RESET_CONFIRM_WINDOW_MS = 3000;
@@ -22,7 +27,16 @@ const AVATAR_BOX = 92;
 // so upgrades bought in the Shop have a place that shows the whole build
 // at a glance instead of just a quiet badge. Pulls straight from the same
 // SHOP_ITEMS catalog, so a new shop item shows up here automatically.
-export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInventory, onBack }: Props) {
+export default function PlayerScreen({
+  ownedUpgrades,
+  onOpenShop,
+  onResetInventory,
+  onBack,
+  firebaseConfigured,
+  user,
+  onSignIn,
+  onSignOut,
+}: Props) {
   const { width, height } = useWindowDimensions();
   const ownedCount = SHOP_ITEMS.filter((item) => ownedUpgrades.includes(item.id)).length;
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -70,6 +84,54 @@ export default function PlayerScreen({ ownedUpgrades, onOpenShop, onResetInvento
       </Text>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {firebaseConfigured && (
+        <View style={styles.accountCard}>
+          {user ? (
+            <>
+              {user.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.accountAvatar} />
+              ) : (
+                <View style={[styles.accountAvatar, styles.accountAvatarFallback]}>
+                  <Text style={styles.accountAvatarFallbackText}>
+                    {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountName} numberOfLines={1}>
+                  {user.displayName ?? user.email ?? 'Signed in'}
+                </Text>
+                <Text style={styles.accountSynced}>☁️ Progress synced</Text>
+              </View>
+              <PressableScale
+                onPress={() => {
+                  playUiTap();
+                  onSignOut();
+                }}
+                style={styles.accountButton}
+              >
+                <Text style={styles.accountButtonText}>SIGN OUT</Text>
+              </PressableScale>
+            </>
+          ) : (
+            <>
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountName}>Not signed in</Text>
+                <Text style={styles.accountSynced}>Sync progress across devices</Text>
+              </View>
+              <PressableScale
+                onPress={() => {
+                  playUiTap();
+                  onSignIn();
+                }}
+                style={[styles.accountButton, styles.accountButtonPrimary]}
+              >
+                <Text style={[styles.accountButtonText, styles.accountButtonTextPrimary]}>SIGN IN WITH GOOGLE</Text>
+              </PressableScale>
+            </>
+          )}
+        </View>
+      )}
       <View style={styles.avatarBox}>
         <View style={styles.avatarGlow} />
         <Player x={AVATAR_BOX / 2} y={AVATAR_BOX / 2 + PLAYER_SIZE / 4} />
@@ -292,6 +354,68 @@ const styles = StyleSheet.create({
   },
   scroll: {
     width: '100%',
+  },
+  accountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 360,
+    alignSelf: 'center',
+    marginTop: 18,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(16,12,38,0.5)',
+    gap: 10,
+  },
+  accountAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+  },
+  accountAvatarFallback: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(138,92,255,0.25)',
+  },
+  accountAvatarFallbackText: {
+    color: COLORS.textPrimary,
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  accountInfo: {
+    flex: 1,
+  },
+  accountName: {
+    color: COLORS.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  accountSynced: {
+    color: COLORS.textSecondary,
+    fontSize: 10.5,
+    marginTop: 2,
+  },
+  accountButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: 'rgba(154,143,194,0.3)',
+  },
+  accountButtonPrimary: {
+    borderColor: COLORS.blue,
+    backgroundColor: 'rgba(77,155,255,0.14)',
+  },
+  accountButtonText: {
+    color: COLORS.textSecondary,
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  accountButtonTextPrimary: {
+    color: COLORS.textPrimary,
   },
   scrollContent: {
     alignItems: 'center',
