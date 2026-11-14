@@ -9,6 +9,16 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.28.0',
+    date: '2026-11-14',
+    icon: '☁️',
+    title: 'Sign in to sync your progress',
+    bullets: [
+      'New: sign in with Google on the Player screen to back up your best score, Stardust, and upgrades to the cloud — and pick them back up on any other device.',
+      'Totally optional — playing signed out works exactly as before.',
+    ],
+  },
+  {
     version: '1.27.0',
     date: '2026-11-14',
     icon: '🌀',

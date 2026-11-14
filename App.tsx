@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signOut as firebaseSignOut, User } from 'firebase/auth';
 import SplashScreen from './src/components/SplashScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import BotSelectScreen from './src/screens/BotSelectScreen';
@@ -21,6 +22,8 @@ import {
   saveOwnedUpgrades,
   saveSoundEnabledPref,
 } from './src/utils/storage';
+import { fetchCloudProgress, pushCloudProgress } from './src/utils/cloudSave';
+import { firebaseConfigured, getFirebaseAuth } from './src/utils/firebase';
 import { setSoundEnabled } from './src/utils/sound';
 import { BotConfig, GameMode, UpgradeId } from './src/types';
 
@@ -37,6 +40,12 @@ export default function App() {
   const [soundOn, setSoundOn] = useState(true);
   const [currency, setCurrency] = useState(0);
   const [ownedUpgrades, setOwnedUpgrades] = useState<UpgradeId[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  // Snapshot of the three cloud-synced fields, kept current every render —
+  // only read at the moment a brand-new account's first sign-in needs to
+  // seed the cloud doc from whatever's on this device right now.
+  const progressRef = useRef({ bestScore, currency, ownedUpgrades });
+  progressRef.current = { bestScore, currency, ownedUpgrades };
 
   useEffect(() => {
     setBestScore(getBestScore());
@@ -48,6 +57,48 @@ export default function App() {
     const timer = setTimeout(() => setPhase('home'), SPLASH_MIN_DURATION_MS);
     return () => clearTimeout(timer);
   }, []);
+
+  // Google sign-in syncs progress to Firestore so it follows the player
+  // across devices — entirely optional, local play is unaffected either
+  // way. Only wired up once Firebase is actually configured (see
+  // firebase.ts), so a deploy before that's done behaves exactly like the
+  // no-login build it replaces.
+  useEffect(() => {
+    if (!firebaseConfigured) return;
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (nextUser) => {
+      setUser(nextUser);
+      if (!nextUser) return;
+      const cloud = await fetchCloudProgress(nextUser.uid);
+      if (cloud) {
+        // An existing cloud profile wins outright over whatever's on this
+        // browser — the common case is returning to a known device, or
+        // signing into an account already used elsewhere.
+        setBestScore(cloud.bestScore);
+        saveBestScore(cloud.bestScore);
+        setCurrency(cloud.currency);
+        saveCurrency(cloud.currency);
+        setOwnedUpgrades(cloud.ownedUpgrades);
+        saveOwnedUpgrades(cloud.ownedUpgrades);
+      } else {
+        // Brand-new account: seed the cloud doc from this device's current
+        // progress instead of starting it empty.
+        pushCloudProgress(nextUser.uid, progressRef.current);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const signIn = () => {
+    if (!firebaseConfigured) return;
+    signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider()).catch(() => {
+      // ignore — popup closed/blocked, user stays signed out
+    });
+  };
+
+  const signOutUser = () => {
+    if (!firebaseConfigured) return;
+    firebaseSignOut(getFirebaseAuth()).catch(() => {});
+  };
 
   const toggleSound = () => {
     const next = !soundOn;
@@ -63,6 +114,7 @@ export default function App() {
     setCurrency((prev) => {
       const next = prev + amount;
       saveCurrency(next);
+      if (user) pushCloudProgress(user.uid, { ...progressRef.current, currency: next });
       return next;
     });
   };
@@ -84,6 +136,7 @@ export default function App() {
       setOwnedUpgrades((prevOwned) => {
         const nextOwned = [...prevOwned, id];
         saveOwnedUpgrades(nextOwned);
+        if (user) pushCloudProgress(user.uid, { ...progressRef.current, currency: next, ownedUpgrades: nextOwned });
         return nextOwned;
       });
       return next;
@@ -93,6 +146,7 @@ export default function App() {
   const resetInventory = () => {
     setOwnedUpgrades([]);
     saveOwnedUpgrades([]);
+    if (user) pushCloudProgress(user.uid, { ...progressRef.current, ownedUpgrades: [] });
   };
 
   const handleExit = (finalScore: number) => {
@@ -100,6 +154,7 @@ export default function App() {
     if (finalScore > bestScore) {
       setBestScore(finalScore);
       saveBestScore(finalScore);
+      if (user) pushCloudProgress(user.uid, { ...progressRef.current, bestScore: finalScore });
     }
     setPhase('home');
   };
@@ -165,6 +220,10 @@ export default function App() {
             onOpenShop={() => setPhase('shop')}
             onResetInventory={resetInventory}
             onBack={() => setPhase('home')}
+            firebaseConfigured={firebaseConfigured}
+            user={user}
+            onSignIn={signIn}
+            onSignOut={signOutUser}
           />
         )}
         {phase === 'changelog' && <VersionLogScreen onBack={() => setPhase('home')} />}
