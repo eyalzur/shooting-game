@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { BOT_LEVELS, COLORS } from '../constants';
+import { BOT_LEVELS, COLORS, FONT_DISPLAY } from '../constants';
 import { BotConfig } from '../types';
 import { playUiTap } from '../utils/sound';
 
@@ -94,9 +94,9 @@ const styles = StyleSheet.create({
     left: 20,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   backButtonText: {
@@ -108,9 +108,10 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 2,
-    textShadowColor: COLORS.purple,
+    textShadowColor: COLORS.pink,
     textShadowRadius: 18,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -131,8 +132,9 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 24,
     borderRadius: 20,
-    borderWidth: 1.5,
-    backgroundColor: 'rgba(16,12,38,0.65)',
+    borderWidth: 2,
+    borderColor: COLORS.border,
+    backgroundColor: 'rgba(255,255,255,0.1)',
     shadowOpacity: 0.5,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 0 },
@@ -150,7 +152,8 @@ const styles = StyleSheet.create({
   cardName: {
     color: COLORS.textPrimary,
     fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 1.5,
     textShadowRadius: 14,
     textShadowOffset: { width: 0, height: 0 },

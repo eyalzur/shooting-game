@@ -1,7 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { APP_VERSION, CHANGELOG, COLORS } from '../constants';
+import { APP_VERSION, CHANGELOG, COLORS, FONT_DISPLAY } from '../constants';
 import { playUiTap } from '../utils/sound';
 
 interface Props {
@@ -78,9 +78,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   backButtonText: {
@@ -92,10 +92,11 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 2,
     marginTop: 100,
-    textShadowColor: COLORS.cyan,
+    textShadowColor: COLORS.pink,
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -123,14 +124,14 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     gap: 14,
   },
   entryIconWrap: {
     width: 46,
     height: 46,
     borderRadius: 23,
-    backgroundColor: 'rgba(90,216,255,0.12)',
+    backgroundColor: 'rgba(47,230,197,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -148,7 +149,8 @@ const styles = StyleSheet.create({
   entryVersion: {
     color: COLORS.cyan,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   entryDate: {
@@ -158,7 +160,8 @@ const styles = StyleSheet.create({
   entryTitle: {
     color: COLORS.textPrimary,
     fontSize: 15,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     marginTop: 3,
     marginBottom: 6,
   },

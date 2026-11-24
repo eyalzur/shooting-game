@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-na
 import PressableScale from '../components/PressableScale';
 import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, CURRENCY_NAME, CURRENCY_PACKS } from '../constants';
+import { COLORS, CURRENCY_ICON, CURRENCY_NAME, CURRENCY_PACKS, FONT_DISPLAY } from '../constants';
 import { playPurchase, playUiTap } from '../utils/sound';
 
 interface Props {
@@ -100,9 +100,9 @@ const styles = StyleSheet.create({
     left: 20,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   backButtonText: {
@@ -114,7 +114,8 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 1.5,
     textShadowColor: COLORS.gold,
     textShadowRadius: 20,
@@ -132,7 +133,8 @@ const styles = StyleSheet.create({
   balanceValue: {
     color: COLORS.textPrimary,
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     textShadowColor: COLORS.purple,
     textShadowRadius: 12,
     textShadowOffset: { width: 0, height: 0 },
@@ -160,7 +162,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.65)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     gap: 14,
   },
   cardIconWrap: {
@@ -180,7 +182,8 @@ const styles = StyleSheet.create({
   cardName: {
     color: COLORS.textPrimary,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     letterSpacing: 1,
   },
   cardAmount: {
@@ -202,7 +205,8 @@ const styles = StyleSheet.create({
   buyButtonText: {
     color: COLORS.textPrimary,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     textAlign: 'center',
   },
 });
