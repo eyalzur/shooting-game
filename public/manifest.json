@@ -6,8 +6,8 @@
   "scope": "/shooting-game/",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0d1117",
-  "theme_color": "#101522",
+  "background_color": "#2a0a42",
+  "theme_color": "#2a0a42",
   "icons": [
     {
       "src": "/shooting-game/icons/icon-192.png",

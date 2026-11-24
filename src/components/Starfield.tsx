@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View } from 'react-native';
-import { LEVEL_THEMES, LEVELS_PER_THEME } from '../constants';
+import { COLORS, LEVEL_THEMES, LEVELS_PER_THEME } from '../constants';
 
 interface Props {
   width: number;
@@ -169,7 +169,7 @@ export default function Starfield({ width, height, level = 0 }: Props) {
 const styles = StyleSheet.create({
   nebula: {
     position: 'absolute',
-    opacity: 0.12,
+    opacity: 0.22,
     shadowOpacity: 1,
     shadowRadius: 120,
     shadowOffset: { width: 0, height: 0 },
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   moonShadow: {
     position: 'absolute',
     top: 0,
-    backgroundColor: '#05030f',
+    backgroundColor: COLORS.background,
     opacity: 0.85,
   },
 });

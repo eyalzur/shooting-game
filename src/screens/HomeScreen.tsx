@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { APP_VERSION, COLORS, CURRENCY_ICON, DURATION_OPTIONS, GAME_NAME } from '../constants';
+import { APP_VERSION, COLORS, CURRENCY_ICON, DURATION_OPTIONS, FONT_DISPLAY, GAME_NAME } from '../constants';
 import { playUiTap } from '../utils/sound';
 
 interface Props {
@@ -188,9 +188,9 @@ const styles = StyleSheet.create({
     right: 20,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   soundButtonText: {
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
     height: 64,
     flexDirection: 'row',
     alignItems: 'stretch',
-    backgroundColor: 'rgba(16,12,38,0.85)',
+    backgroundColor: 'rgba(42,10,66,0.85)',
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
   },
@@ -241,9 +241,10 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 40,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 3,
-    textShadowColor: COLORS.purple,
+    textShadowColor: COLORS.pink,
     textShadowRadius: 24,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 10,
-    backgroundColor: 'rgba(90,216,255,0.1)',
+    backgroundColor: 'rgba(47,230,197,0.14)',
     borderWidth: 1,
     borderColor: COLORS.border,
   },
@@ -316,11 +317,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   durationChipActive: {
     borderColor: COLORS.cyan,
-    backgroundColor: 'rgba(90,216,255,0.16)',
+    backgroundColor: 'rgba(47,230,197,0.18)',
   },
   durationChipText: {
     color: COLORS.textSecondary,
@@ -338,32 +339,33 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
     paddingHorizontal: 52,
     borderRadius: 32,
-    backgroundColor: 'rgba(90,216,255,0.14)',
-    borderWidth: 1.5,
-    borderColor: COLORS.cyan,
-    shadowColor: COLORS.cyan,
-    shadowOpacity: 0.8,
+    backgroundColor: COLORS.pink,
+    borderWidth: 2,
+    borderColor: '#ffffff',
+    shadowColor: COLORS.pink,
+    shadowOpacity: 0.5,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 0 },
     minWidth: 260,
     alignItems: 'center',
   },
   buttonSecondary: {
-    backgroundColor: 'rgba(255,92,179,0.1)',
-    borderColor: COLORS.pink,
-    shadowColor: COLORS.pink,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderColor: COLORS.cyan,
+    shadowColor: COLORS.cyan,
   },
   buttonLabel: {
-    color: COLORS.textPrimary,
+    color: '#ffffff',
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 3,
-    textShadowColor: COLORS.cyan,
-    textShadowRadius: 14,
-    textShadowOffset: { width: 0, height: 0 },
   },
   buttonLabelSecondary: {
     fontSize: 15,
-    textShadowColor: COLORS.pink,
+    color: COLORS.textPrimary,
+    textShadowColor: COLORS.cyan,
+    textShadowRadius: 14,
+    textShadowOffset: { width: 0, height: 0 },
   },
 });

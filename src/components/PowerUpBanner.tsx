@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../constants';
+import { COLORS, FONT_DISPLAY } from '../constants';
 
 export type PowerUpKind = 'rapidFire' | 'spreadShot' | 'bomb' | 'magnet' | 'giant' | 'homing' | 'gravityWell';
 
@@ -132,7 +132,8 @@ const styles = StyleSheet.create({
   label: {
     color: COLORS.textPrimary,
     fontSize: 30,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 3,
     textAlign: 'center',
     marginTop: 4,

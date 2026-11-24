@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { COLORS } from '../constants';
+import { COLORS, FONT_DISPLAY } from '../constants';
 
 interface Props {
   event: { level: number; id: number } | null;
@@ -103,6 +103,7 @@ const styles = StyleSheet.create({
   label: {
     color: COLORS.textPrimary,
     fontSize: 18,
+    fontFamily: FONT_DISPLAY,
     fontWeight: '600',
     letterSpacing: 4,
     textAlign: 'center',
@@ -113,7 +114,8 @@ const styles = StyleSheet.create({
   number: {
     color: COLORS.textPrimary,
     fontSize: 88,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     textAlign: 'center',
     textShadowColor: COLORS.cyan,
     textShadowRadius: 30,

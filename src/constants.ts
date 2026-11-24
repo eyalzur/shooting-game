@@ -9,6 +9,15 @@ export const SPLASH_MIN_DURATION_MS = 1500;
 // by editing a version string somewhere else.
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.29.0',
+    date: '2026-11-24',
+    icon: '🍬',
+    title: 'Cosmic Candy makeover',
+    bullets: [
+      'New look across the whole game: a bright magenta-and-candy palette, a chunky rounded display font, and sticker-style outlined HUD, buttons, and banners.',
+    ],
+  },
+  {
     version: '1.28.0',
     date: '2026-11-14',
     icon: '☁️',
@@ -428,24 +437,28 @@ export const CHANGELOG: ChangelogEntry[] = [
 ];
 export const APP_VERSION = CHANGELOG[0].version;
 
+// Cosmic Candy theme (v1.29.0): a bright magenta/grape backdrop with
+// gumball-bright accents, picked from 5 mockups the player chose between.
+export const FONT_DISPLAY = '"Baloo 2", "Poppins", sans-serif';
+
 export const COLORS = {
-  background: '#05030f',
-  panel: 'rgba(16,12,38,0.65)',
-  border: 'rgba(138,92,255,0.35)',
-  textPrimary: '#f4f1ff',
-  textSecondary: '#9a8fc2',
-  cyan: '#5ad8ff',
-  purple: '#8a5cff',
-  pink: '#ff5cb3',
+  background: '#2a0a42',
+  panel: 'rgba(255,255,255,0.14)',
+  border: 'rgba(255,255,255,0.55)',
+  textPrimary: '#fff6fb',
+  textSecondary: 'rgba(255,246,251,0.75)',
+  cyan: '#2fe6c5',
+  purple: '#b15cff',
+  pink: '#ff4fa3',
   stone: '#a89a85',
   stoneDark: '#5f5346',
   // Pickup-only accents — deliberately not reused from the lane or team
   // colors above, so a falling pickup never reads as "the same color" as a
   // star or cannon already on screen.
-  green: '#5cff9d',
-  orange: '#ff9d5c',
-  starlight: '#d9d4ff',
-  indigo: '#6c5ce7',
+  green: '#4de8a0',
+  orange: '#ffa94d',
+  starlight: '#fff2fa',
+  indigo: '#8c4fd4',
   // Team colors: the player is always blue, the robot opponent always red —
   // used for cannons, bullets, and hit/explosion effects so it's instantly
   // clear whose shot did what.
@@ -487,11 +500,11 @@ export const BULLET_SPEED_MAX_MULTIPLIER = 1.8;
 // scene, not just the numbers. Nebula positions/sizes also drift per theme
 // (see Starfield), so it's not just a recolor each time.
 export const LEVEL_THEMES = [
-  { nebula: ['#8a5cff', '#ff5cb3', '#5ad8ff'], moon: '#d8d2ff' },
-  { nebula: ['#ff5cb3', '#ff9c5a', '#5ad8ff'], moon: '#ffd8c2' },
-  { nebula: ['#5ad8ff', '#5affb0', '#8a5cff'], moon: '#c2fff0' },
-  { nebula: ['#ff5a5a', '#ff5cb3', '#ffd25a'], moon: '#ffd2d2' },
-  { nebula: ['#5affb0', '#5ad8ff', '#ff5cb3'], moon: '#c2ffd8' },
+  { nebula: ['#ff4fa3', '#2fe6c5', '#ffe066'], moon: '#ffd9ec' },
+  { nebula: ['#ff4fa3', '#ffa94d', '#b15cff'], moon: '#ffe3c2' },
+  { nebula: ['#2fe6c5', '#4de8a0', '#ff4fa3'], moon: '#c2fff0' },
+  { nebula: ['#ff5a5a', '#ff4fa3', '#ffe066'], moon: '#ffd2d2' },
+  { nebula: ['#4de8a0', '#2fe6c5', '#ff4fa3'], moon: '#c2ffd8' },
   { nebula: ['#ff9c5a', '#8a5cff', '#5affb0'], moon: '#ffe0c2' },
   { nebula: ['#5ad8ff', '#ffd25a', '#ff5a5a'], moon: '#c2e8ff' },
   { nebula: ['#ff5cb3', '#5affb0', '#ffd25a'], moon: '#ffd2ec' },
