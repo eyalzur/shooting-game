@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   wrap: {
     position: 'absolute',
     borderWidth: 1.5,
-    backgroundColor: 'rgba(16,12,38,0.8)',
+    backgroundColor: 'rgba(42,10,66,0.78)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowOpacity: 0.9,

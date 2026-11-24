@@ -24,8 +24,8 @@
       "output": "single",
       "name": "Orbit Breaker",
       "shortName": "Orbit Breaker",
-      "themeColor": "#101522",
-      "backgroundColor": "#0d1117"
+      "themeColor": "#2a0a42",
+      "backgroundColor": "#2a0a42"
     },
     "experiments": {
       "baseUrl": "/shooting-game"

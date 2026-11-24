@@ -4,7 +4,7 @@ import { User } from 'firebase/auth';
 import Player from '../components/Player';
 import PressableScale from '../components/PressableScale';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, PLAYER_SIZE, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
+import { COLORS, CURRENCY_ICON, FONT_DISPLAY, PLAYER_SIZE, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
 import { UpgradeId } from '../types';
 import { playUiTap } from '../utils/sound';
 
@@ -169,7 +169,7 @@ export default function PlayerScreen({
                           styles.badge,
                           {
                             borderColor: owned ? category.color : 'rgba(154,143,194,0.25)',
-                            backgroundColor: owned ? `${category.color}22` : 'rgba(16,12,38,0.5)',
+                            backgroundColor: owned ? `${category.color}22` : 'rgba(255,255,255,0.08)',
                             opacity: owned ? 1 : 0.4,
                           },
                         ]}
@@ -250,7 +250,7 @@ export default function PlayerScreen({
                   styles.detailIconWrap,
                   {
                     borderColor: selectedLevel > 0 ? selectedCategory.color : 'rgba(154,143,194,0.25)',
-                    backgroundColor: selectedLevel > 0 ? `${selectedCategory.color}22` : 'rgba(16,12,38,0.5)',
+                    backgroundColor: selectedLevel > 0 ? `${selectedCategory.color}22` : 'rgba(255,255,255,0.08)',
                   },
                 ]}
               >
@@ -325,9 +325,9 @@ const styles = StyleSheet.create({
     left: 20,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   backButtonText: {
@@ -339,10 +339,11 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 26,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 2,
     marginTop: 64,
-    textShadowColor: COLORS.blue,
+    textShadowColor: COLORS.pink,
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     gap: 10,
   },
   accountAvatar: {
@@ -377,7 +378,7 @@ const styles = StyleSheet.create({
   accountAvatarFallback: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(138,92,255,0.25)',
+    backgroundColor: 'rgba(177,92,255,0.3)',
   },
   accountAvatarFallbackText: {
     color: COLORS.textPrimary,
@@ -405,8 +406,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(154,143,194,0.3)',
   },
   accountButtonPrimary: {
-    borderColor: COLORS.blue,
-    backgroundColor: 'rgba(77,155,255,0.14)',
+    borderColor: COLORS.pink,
+    backgroundColor: 'rgba(255,79,163,0.16)',
   },
   accountButtonText: {
     color: COLORS.textSecondary,
@@ -531,7 +532,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
     borderColor: COLORS.purple,
-    backgroundColor: 'rgba(138,92,255,0.12)',
+    backgroundColor: 'rgba(177,92,255,0.16)',
   },
   shopButtonText: {
     color: COLORS.textPrimary,
@@ -562,7 +563,7 @@ const styles = StyleSheet.create({
     color: COLORS.red,
   },
   detailScrim: {
-    backgroundColor: 'rgba(5,3,15,0.82)',
+    backgroundColor: 'rgba(42,10,66,0.82)',
   },
   detailCenter: {
     flex: 1,
@@ -578,7 +579,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.95)',
+    backgroundColor: 'rgba(42,10,66,0.95)',
     alignItems: 'center',
   },
   detailClose: {
