@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } fr
 import PressableScale from '../components/PressableScale';
 import PurchaseBurst, { PurchaseBurstEvent } from '../components/PurchaseBurst';
 import Starfield from '../components/Starfield';
-import { COLORS, CURRENCY_ICON, CURRENCY_NAME, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
+import { COLORS, CURRENCY_ICON, CURRENCY_NAME, FONT_DISPLAY, SHOP_CATEGORIES, SHOP_ITEMS } from '../constants';
 import { ShopCategory, ShopItemDef, UpgradeId } from '../types';
 import { shadeColor } from '../utils/color';
 import { playPurchase, playUiTap } from '../utils/sound';
@@ -347,9 +347,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: 'rgba(138,92,255,0.14)',
-    borderWidth: 1,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 2,
     borderColor: COLORS.border,
   },
   backButtonText: {
@@ -361,10 +361,11 @@ const styles = StyleSheet.create({
   title: {
     color: COLORS.textPrimary,
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     letterSpacing: 2,
     marginTop: 58,
-    textShadowColor: COLORS.purple,
+    textShadowColor: COLORS.pink,
     textShadowRadius: 20,
     textShadowOffset: { width: 0, height: 0 },
   },
@@ -396,7 +397,8 @@ const styles = StyleSheet.create({
   balanceValue: {
     color: COLORS.textPrimary,
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '800',
     textShadowColor: COLORS.purple,
     textShadowRadius: 12,
     textShadowOffset: { width: 0, height: 0 },
@@ -440,7 +442,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.65)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   suggestCardDisabled: {
     borderColor: UNAFFORDABLE_COLOR,
@@ -466,7 +468,8 @@ const styles = StyleSheet.create({
   suggestName: {
     color: COLORS.textPrimary,
     fontSize: 10.5,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: 8,
     height: 26,
@@ -483,7 +486,8 @@ const styles = StyleSheet.create({
   suggestPriceText: {
     color: COLORS.textPrimary,
     fontSize: 11.5,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
   },
   suggestPriceTagDisabled: {
     borderColor: UNAFFORDABLE_COLOR,
@@ -537,7 +541,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    backgroundColor: 'rgba(16,12,38,0.65)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     gap: 12,
   },
   cardIconWrap: {
@@ -562,7 +566,8 @@ const styles = StyleSheet.create({
   cardName: {
     color: COLORS.textPrimary,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   cardLevel: {
@@ -604,7 +609,7 @@ const styles = StyleSheet.create({
   },
   buyButtonOwned: {
     borderColor: COLORS.green,
-    backgroundColor: 'rgba(92,255,157,0.3)',
+    backgroundColor: 'rgba(77,232,160,0.3)',
   },
   buyButtonDisabled: {
     borderColor: UNAFFORDABLE_COLOR,
@@ -613,7 +618,8 @@ const styles = StyleSheet.create({
   buyButtonText: {
     color: COLORS.textPrimary,
     fontSize: 13,
-    fontWeight: 'bold',
+    fontFamily: FONT_DISPLAY,
+    fontWeight: '700',
     letterSpacing: 0.5,
     textAlign: 'center',
   },
